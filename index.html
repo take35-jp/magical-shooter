@@ -930,7 +930,7 @@ function createEnemy(type, x, y, stageIdx) {
     'kamikaze':  { w: 38, h: 32, hp:  4, speed: 6.0, color: '#ff3333', points: 320, shape: 'kamikaze', shielded: true },
   };
   const t = baseTypes[type] || baseTypes['blob'];
-  return {
+  const enemy = {
     ...t,
     x, y,
     hp: Math.round(t.hp * sm.enemyHPMult),
@@ -943,6 +943,15 @@ function createEnemy(type, x, y, stageIdx) {
     startY: y,
     alive: true,
   };
+  // Kamikaze locks its trajectory at spawn — straight charge, no homing
+  if (type === 'kamikaze') {
+    const px = player.x + player.w/2, py = player.y + player.h/2;
+    const dx = px - (x + t.w/2), dy = py - (y + t.h/2);
+    const d = Math.sqrt(dx*dx + dy*dy) || 1;
+    enemy.kVx = dx/d * enemy.speed;
+    enemy.kVy = dy/d * enemy.speed;
+  }
+  return enemy;
 }
 
 function getEnemyTypes(stageIdx) {
@@ -1323,12 +1332,9 @@ function updateEnemies(stageIdx) {
 
     // ---- Movement ----
     if (e.type === 'kamikaze') {
-      // High-speed ramming: always charges directly at player
-      const px = player.x + player.w/2, py = player.y + player.h/2;
-      const dx = px - (e.x+e.w/2), dy = py - (e.y+e.h/2);
-      const d = Math.sqrt(dx*dx+dy*dy) || 1;
-      e.x += dx/d * e.speed;
-      e.y += dy/d * e.speed;
+      // High-speed straight charge along the velocity locked at spawn — no homing
+      e.x += e.kVx;
+      e.y += e.kVy;
     } else if (e.type === 'giant') {
       // Slow horizontal march (no diving — too easy to dodge otherwise)
       e.x -= e.speed;
@@ -1790,9 +1796,8 @@ function drawEnemy(e) {
       break;
     }
     case 'kamikaze': {
-      // Pointed arrow facing toward the player
-      const px = player.x + player.w/2, py = player.y + player.h/2;
-      const ang = Math.atan2(py - cy, px - cx);
+      // Pointed arrow facing the locked travel direction (set at spawn)
+      const ang = Math.atan2(e.kVy || 0, e.kVx || -1);
       ctx.translate(cx, cy);
       ctx.rotate(ang);
       ctx.beginPath();
