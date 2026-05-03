@@ -1388,13 +1388,14 @@ function updateEnemies(stageIdx) {
       if (e.hp <= 0) {
         score += e.points;
         addHitEffect(e.x+e.w/2, e.y+e.h/2, e.color);
-        // Item drop — 5% chance (4.5% +10%), split 50% upgrade / 25% guardian / 25% heal
-        if (Math.random() < 0.05) {
-          const r = Math.random();
-          let type;
-          if (r < 0.5) type = 'upgrade';
-          else if (r < 0.75) type = 'guardian';
-          else type = 'heal';
+        // Item drop — independent rates per type, mutually exclusive
+        // (10% upgrade / 10% guardian / 5% heal / 75% nothing)
+        const r = Math.random();
+        let type = null;
+        if (r < 0.10) type = 'upgrade';
+        else if (r < 0.20) type = 'guardian';
+        else if (r < 0.25) type = 'heal';
+        if (type) {
           items.push({
             x: e.x+e.w/2, y: e.y+e.h/2,
             vx: -1.5, vy: (Math.random()-0.5),
