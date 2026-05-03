@@ -377,6 +377,50 @@ let joystick = { dx: 0, dy: 0, active: false };
 let mobileShootHeld = false;
 let isMobileDevice = false;
 let isPaused = false;
+
+// Gamepad input state (combined with keyboard/touch in updatePlayer)
+let gpInput = { dx: 0, dy: 0, shoot: false, connected: false };
+let gpButtonsPrev = [];
+window.addEventListener('gamepadconnected', e => { gpInput.connected = true; });
+window.addEventListener('gamepaddisconnected', e => {
+  gpInput = { dx: 0, dy: 0, shoot: false, connected: false };
+  gpButtonsPrev = [];
+});
+
+function pollGamepad() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let pad = null;
+  for (const p of pads) { if (p && p.connected) { pad = p; break; } }
+  if (!pad) {
+    gpInput.dx = 0; gpInput.dy = 0; gpInput.shoot = false; gpInput.connected = false;
+    return;
+  }
+  gpInput.connected = true;
+
+  // Movement: left stick + D-pad
+  const dz = 0.18;
+  let gx = pad.axes[0] || 0;
+  let gy = pad.axes[1] || 0;
+  if (Math.abs(gx) < dz) gx = 0;
+  if (Math.abs(gy) < dz) gy = 0;
+  if (pad.buttons[14] && pad.buttons[14].pressed) gx = -1;
+  if (pad.buttons[15] && pad.buttons[15].pressed) gx = 1;
+  if (pad.buttons[12] && pad.buttons[12].pressed) gy = -1;
+  if (pad.buttons[13] && pad.buttons[13].pressed) gy = 1;
+  gpInput.dx = gx;
+  gpInput.dy = gy;
+
+  // Buttons (standard mapping): 0=A 1=B 2=X 3=Y 7=RT 9=Start
+  const bs = pad.buttons.map(b => !!(b && b.pressed));
+  // Hold-to-shoot on A or RT
+  gpInput.shoot = bs[0] || bs[7];
+  // Edge-trigger one-shots
+  if (bs[1] && !gpButtonsPrev[1]) fireBeam();        // B → BEAM
+  if (bs[2] && !gpButtonsPrev[2]) dropBomb();        // X → BOMB
+  if (bs[3] && !gpButtonsPrev[3]) toggleBGMMute();   // Y → BGM mute
+  if (bs[9] && !gpButtonsPrev[9]) togglePause();     // Start → PAUSE
+  gpButtonsPrev = bs;
+}
 let lastShot = 0;
 let bgScroll = 0;
 let stars = [];
@@ -1132,6 +1176,8 @@ function updatePlayer() {
 
   dx += joystick.dx;
   dy += joystick.dy;
+  dx += gpInput.dx;
+  dy += gpInput.dy;
 
   const len = Math.sqrt(dx*dx+dy*dy);
   if (len > 1) { dx/=len; dy/=len; }
@@ -1156,8 +1202,8 @@ function updatePlayer() {
   if (player.invincible > 0) player.invincible--;
   if (player.hitFlash > 0) player.hitFlash--;
   
-  // Auto-fire
-  if (keys['Space'] || keys['KeyZ'] || mobileShootHeld) {
+  // Auto-fire (keyboard / mobile / gamepad)
+  if (keys['Space'] || keys['KeyZ'] || mobileShootHeld || gpInput.shoot) {
     if (!beamActive) fireShot();
   }
   
@@ -1286,7 +1332,7 @@ function updateEnemies(stageIdx) {
       const dy = player.y + player.h/2 - ey;
       const dist = Math.sqrt(dx*dx+dy*dy);
       if (dist > 0) {
-        enemyBullets.push({ x: ex, y: ey, vx: -spd*dx/dist, vy: -spd*dy/dist, w: 8, h: 8, color: e.color });
+        enemyBullets.push({ x: ex, y: ey, vx: spd*dx/dist, vy: spd*dy/dist, w: 8, h: 8, color: e.color });
       }
     }
     
@@ -2072,6 +2118,10 @@ function drawHUD() {
     ctx.font = '8px monospace';
     ctx.textAlign = 'right';
     ctx.fillText('[←↑↓→/WASD] MOVE  [Z/SPACE] SHOT  [X] BOMB  [C] BEAM  [P] PAUSE  [M] BGM', CANVAS_W - 6, CANVAS_H - 6);
+    if (gpInput.connected) {
+      ctx.fillStyle = 'rgba(180,255,200,0.7)';
+      ctx.fillText('🎮 PAD: STICK/D-PAD MOVE  A=SHOT  B=BEAM  X=BOMB  Y=BGM  START=PAUSE', CANVAS_W - 6, CANVAS_H - 16);
+    }
   }
 
   // Sync mobile button ammo counts with game state
@@ -2096,6 +2146,7 @@ function showStageTitle(text) {
 
 // ==================== MAIN LOOP ====================
 function gameLoop() {
+  pollGamepad();
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
   
   // Background
