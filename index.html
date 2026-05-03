@@ -1351,17 +1351,20 @@ function updateEnemies(stageIdx) {
       const dx = player.x + player.w/2 - ex;
       const dy = player.y + player.h/2 - ey;
       const dist = Math.sqrt(dx*dx+dy*dy) || 1;
+      // All non-boss bullets share the GIANT's heavy gold orb visual.
+      // Per-type differences live in firing pattern / cadence / speed only.
+      const ZAKO_BULLET = { w: 14, h: 14, color: '#ffcc66' };
       if (e.type === 'kamikaze') {
         // Doesn't shoot — body-slams instead
         e.shotTimer = 9999;
       } else if (e.type === 'sniper') {
-        // Thin fast laser needle aimed at player (telegraphed via charge glow)
+        // Single fast aimed shot (charge telegraph still shows)
         e.shotTimer = 90 + Math.random() * 50;
         const sniperSpd = sm.bulletSpeed * 2.4;
         enemyBullets.push({
           x: ex, y: ey,
           vx: sniperSpd * dx/dist, vy: sniperSpd * dy/dist,
-          w: 22, h: 3, color: '#ff5555',
+          ...ZAKO_BULLET,
         });
       } else if (e.type === 'giant') {
         // Giant fires a slow heavy 3-shot spread
@@ -1373,13 +1376,17 @@ function updateEnemies(stageIdx) {
           enemyBullets.push({
             x: ex, y: ey,
             vx: Math.cos(a) * gspd, vy: Math.sin(a) * gspd,
-            w: 14, h: 14, color: '#ffcc66',
+            ...ZAKO_BULLET,
           });
         }
       } else {
         e.shotTimer = 60 + Math.random()*80;
         const spd = sm.bulletSpeed;
-        enemyBullets.push({ x: ex, y: ey, vx: spd*dx/dist, vy: spd*dy/dist, w: 8, h: 8, color: e.color });
+        enemyBullets.push({
+          x: ex, y: ey,
+          vx: spd*dx/dist, vy: spd*dy/dist,
+          ...ZAKO_BULLET,
+        });
       }
     }
     
