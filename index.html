@@ -319,7 +319,7 @@ canvas {
     <div class="mobileBtn" id="btnBeam">
       <span class="key">[C]</span>
       <span class="label">BEAM</span>
-      <span class="ammo" id="beamCount">1</span>
+      <span class="ammo" id="beamCount">2</span>
     </div>
     <div class="mobileBtn" id="btnBomb">
       <span class="key">[X]</span>
@@ -428,7 +428,7 @@ let frameCount = 0;
 let bossSpawned = false;
 let boss = null;
 let stageBombs = 3;
-let stageBeam = 1;
+let stageBeam = 2;
 let stageClearTimer = 0;
 let bossDefeated = false;
 
@@ -563,7 +563,7 @@ function initPlayer() {
   };
   guardians = [];
   stageBombs = 3;
-  stageBeam = 1;
+  stageBeam = 2;
   beamActive = false;
   beamTimer = 0;
   beamCooldown = false;
@@ -926,8 +926,8 @@ function createEnemy(type, x, y, stageIdx) {
     // ---- New enemy types ----
     'sniper':    { w: 38, h: 38, hp:  6, speed: 1.5, color: '#ff7777', points: 230, shape: 'sniper' },
     'shielded':  { w: 46, h: 46, hp:  6, speed: 1.4, color: '#ccddff', points: 380, shape: 'shielded', shielded: true },
-    'giant':     { w: 84, h: 84, hp: 80, speed: 0.7, color: '#ddaa44', points: 900, shape: 'giant' },
-    'kamikaze':  { w: 38, h: 32, hp:  4, speed: 6.0, color: '#ff3333', points: 280, shape: 'kamikaze' },
+    'giant':     { w: 84, h: 84, hp: 320, speed: 0.7, color: '#ddaa44', points: 900, shape: 'giant' },
+    'kamikaze':  { w: 38, h: 32, hp:  4, speed: 6.0, color: '#ff3333', points: 320, shape: 'kamikaze', shielded: true },
   };
   const t = baseTypes[type] || baseTypes['blob'];
   return {
@@ -2457,7 +2457,7 @@ function drawPausedOverlay() {
 
 function initPlayerStage() {
   stageBombs = 3;
-  stageBeam = 1;
+  stageBeam = 2;
   beamActive = false;
   beamTimer = 0;
   player.beamMode = false;
