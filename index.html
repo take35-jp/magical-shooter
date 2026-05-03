@@ -1902,48 +1902,55 @@ function drawEnemy(e) {
 function drawBoss() {
   if (!boss) return;
   const cx = boss.x + boss.w/2, cy = boss.y + boss.h/2;
-  
+  const img = images['boss' + (boss.stageIdx + 1)];
+
   ctx.save();
   ctx.shadowBlur = 30 + Math.sin(frameCount*0.1)*10;
   ctx.shadowColor = boss.color;
-  
+
   // Flash phase 3
   if (boss.phase === 3 && Math.floor(frameCount/3) % 2) ctx.globalAlpha = 0.7;
-  
-  // Draw boss body
-  ctx.fillStyle = boss.color;
-  ctx.beginPath(); ctx.arc(cx, cy, boss.w/2, 0, Math.PI*2); ctx.fill();
-  
-  // Inner details
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#000000aa';
-  ctx.beginPath(); ctx.arc(cx, cy, boss.w/3, 0, Math.PI*2); ctx.fill();
-  
-  // Eyes
-  for (let j = 0; j < (boss.phase + 1); j++) {
-    const ea = (j/(boss.phase+1))*Math.PI*2 + boss.angle;
-    const er = boss.w/3;
-    const ex = cx + Math.cos(ea)*er*0.6, ey = cy + Math.sin(ea)*er*0.6;
-    ctx.fillStyle = '#ff0000';
-    ctx.beginPath(); ctx.arc(ex, ey, 8, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ffff00';
-    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2); ctx.fill();
+
+  if (img && img.complete) {
+    // Image-based boss: draw at 1.5x bounding box for visual presence,
+    // with subtle breathing scale + slight sway. Collision stays at boss.w/h.
+    const breath = 1 + Math.sin(frameCount * 0.05) * 0.025;
+    const scale = 1.5 * breath;
+    const drawW = boss.w * scale;
+    const drawH = boss.h * scale;
+    const dx = cx - drawW / 2;
+    const dy = cy - drawH / 2;
+    ctx.drawImage(img, dx, dy, drawW, drawH);
+  } else {
+    // Fallback procedural boss — used if the image is still loading or missing
+    ctx.fillStyle = boss.color;
+    ctx.beginPath(); ctx.arc(cx, cy, boss.w/2, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000000aa';
+    ctx.beginPath(); ctx.arc(cx, cy, boss.w/3, 0, Math.PI*2); ctx.fill();
+    for (let j = 0; j < (boss.phase + 1); j++) {
+      const ea = (j/(boss.phase+1))*Math.PI*2 + boss.angle;
+      const er = boss.w/3;
+      const ex = cx + Math.cos(ea)*er*0.6, ey = cy + Math.sin(ea)*er*0.6;
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath(); ctx.arc(ex, ey, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.strokeStyle = boss.color + 'aa';
+    ctx.lineWidth = 4;
+    for (let j = 0; j < 8; j++) {
+      const a = (j/8)*Math.PI*2 + boss.angle;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a)*boss.w/2, cy + Math.sin(a)*boss.h/2);
+      ctx.quadraticCurveTo(
+        cx + Math.cos(a+0.5)*(boss.w/2+20), cy + Math.sin(a+0.5)*(boss.h/2+20),
+        cx + Math.cos(a+1)*(boss.w/2+5), cy + Math.sin(a+1)*(boss.h/2+5)
+      );
+      ctx.stroke();
+    }
   }
-  
-  // Tentacles
-  ctx.strokeStyle = boss.color + 'aa';
-  ctx.lineWidth = 4;
-  for (let j = 0; j < 8; j++) {
-    const a = (j/8)*Math.PI*2 + boss.angle;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a)*boss.w/2, cy + Math.sin(a)*boss.h/2);
-    ctx.quadraticCurveTo(
-      cx + Math.cos(a+0.5)*(boss.w/2+20), cy + Math.sin(a+0.5)*(boss.h/2+20),
-      cx + Math.cos(a+1)*(boss.w/2+5), cy + Math.sin(a+1)*(boss.h/2+5)
-    );
-    ctx.stroke();
-  }
-  
+
   ctx.restore();
   
   // Boss HP bar
@@ -2971,6 +2978,21 @@ window.addEventListener('load', () => {
       }
     };
     img.src = src;
+  }
+
+  // Load boss images (1.png .. 6.png) — same flood-fill transparency
+  for (let n = 1; n <= 6; n++) {
+    const key = 'boss' + n;
+    const img = new Image();
+    images[key] = img;
+    img.onload = () => {
+      try {
+        images[key] = makeTransparent(img);
+      } catch (e) {
+        console.warn('boss transparency failed for', key, e);
+      }
+    };
+    img.src = n + '.png';
   }
   
   initStars();
