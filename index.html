@@ -759,7 +759,9 @@ function fireShot() {
   const bx = player.x + player.w/2;
   const by = player.y + player.h/2;
   const lv = player.upgradeLevel;
-  const dmg = 1 + Math.floor(lv / 3); // 1, 1, 1, 2, 2, 2, 3, ... up to 6 at LV15
+  // Per-bullet damage shrinks as level rises so bullet-count growth doesn't
+  // explode total DPS. LV0:3.0 → LV15:0.75 (linear, floored at 0.5).
+  const dmg = Math.max(0.5, 3 - lv * 0.15);
   const color = `hsl(${320 - lv * 6}, 100%, 75%)`;
 
   // LV0: single forward
