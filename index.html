@@ -432,14 +432,14 @@ let stageBeam = 1;
 let stageClearTimer = 0;
 let bossDefeated = false;
 
-// Stage config
+// Stage config — spawnRate is per-frame interval between spawns (lower = denser swarm)
 const STAGE_CONFIG = [
-  { name: 'STAGE 1: 宇宙の序章',         terrain: 'open',          enemyHPMult: 1.0, enemySpeedMult: 1.0, spawnRate: 180, bulletSpeed: 3 },
-  { name: 'STAGE 2: 小惑星帯',           terrain: 'open',          enemyHPMult: 1.3, enemySpeedMult: 1.15, spawnRate: 150, bulletSpeed: 3.5 },
-  { name: 'STAGE 3: 結晶の洞窟',         terrain: 'cave_narrow',   enemyHPMult: 1.7, enemySpeedMult: 1.3, spawnRate: 120, bulletSpeed: 4 },
-  { name: 'STAGE 4: 鼓動する坑道',       terrain: 'cave_pulse',    enemyHPMult: 2.2, enemySpeedMult: 1.5, spawnRate: 100, bulletSpeed: 4.5 },
-  { name: 'STAGE 5: 怪獣母艦・体内',     terrain: 'cave_fortress', enemyHPMult: 3.0, enemySpeedMult: 1.7, spawnRate: 80, bulletSpeed: 5 },
-  { name: 'STAGE 6: 最終決戦・要塞核心', terrain: 'cave_fortress', enemyHPMult: 5.0, enemySpeedMult: 2.0, spawnRate: 60, bulletSpeed: 6 },
+  { name: 'STAGE 1: 宇宙の序章',         terrain: 'open',          enemyHPMult: 1.0, enemySpeedMult: 1.0, spawnRate: 60, bulletSpeed: 3 },
+  { name: 'STAGE 2: 小惑星帯',           terrain: 'open',          enemyHPMult: 1.3, enemySpeedMult: 1.15, spawnRate: 50, bulletSpeed: 3.5 },
+  { name: 'STAGE 3: 結晶の洞窟',         terrain: 'cave_narrow',   enemyHPMult: 1.7, enemySpeedMult: 1.3, spawnRate: 40, bulletSpeed: 4 },
+  { name: 'STAGE 4: 鼓動する坑道',       terrain: 'cave_pulse',    enemyHPMult: 2.2, enemySpeedMult: 1.5, spawnRate: 33, bulletSpeed: 4.5 },
+  { name: 'STAGE 5: 怪獣母艦・体内',     terrain: 'cave_fortress', enemyHPMult: 3.0, enemySpeedMult: 1.7, spawnRate: 28, bulletSpeed: 5 },
+  { name: 'STAGE 6: 最終決戦・要塞核心', terrain: 'cave_fortress', enemyHPMult: 5.0, enemySpeedMult: 2.0, spawnRate: 20, bulletSpeed: 6 },
 ];
 
 // ==================== TERRAIN ====================
@@ -525,12 +525,12 @@ function drawTerrain(stageIdx) {
 }
 
 const BOSS_CONFIG = [
-  { name: 'スライム皇帝', hp: 200, color: '#88ff44', size: 80 },
-  { name: 'クリスタルデーモン', hp: 400, color: '#44ddff', size: 90 },
-  { name: 'サンダーワーム', hp: 700, color: '#ffdd00', size: 100 },
-  { name: 'ダークネビュラ', hp: 1100, color: '#aa44ff', size: 110 },
-  { name: '宇宙母艦マゴス', hp: 1800, color: '#ff6600', size: 130 },
-  { name: '大魔王ヴォイドロード', hp: 3000, color: '#ff2244', size: 150 },
+  { name: 'スライム皇帝',         hp: 600,  color: '#88ff44', size: 80 },
+  { name: 'クリスタルデーモン',   hp: 1200, color: '#44ddff', size: 90 },
+  { name: 'サンダーワーム',       hp: 2100, color: '#ffdd00', size: 100 },
+  { name: 'ダークネビュラ',       hp: 3300, color: '#aa44ff', size: 110 },
+  { name: '宇宙母艦マゴス',       hp: 5400, color: '#ff6600', size: 130 },
+  { name: '大魔王ヴォイドロード', hp: 9000, color: '#ff2244', size: 150 },
 ];
 
 // ==================== INIT ====================
@@ -916,13 +916,18 @@ function fireBeam() {
 function createEnemy(type, x, y, stageIdx) {
   const sm = STAGE_CONFIG[stageIdx];
   const baseTypes = {
-    'blob': { w: 44, h: 36, hp: 3, speed: 2.2, color: '#55ff88', points: 100, shape: 'blob' },
-    'eye': { w: 36, h: 36, hp: 5, speed: 1.8, color: '#ff55aa', points: 150, shape: 'eye' },
-    'dart': { w: 48, h: 24, hp: 2, speed: 4.0, color: '#ffaa22', points: 120, shape: 'dart' },
-    'tank': { w: 56, h: 48, hp: 12, speed: 1.2, color: '#aaaaff', points: 300, shape: 'tank' },
-    'spinner': { w: 40, h: 40, hp: 7, speed: 2.5, color: '#ff6644', points: 200, shape: 'spinner' },
-    'jellyfish': { w: 50, h: 44, hp: 9, speed: 1.5, color: '#dd88ff', points: 250, shape: 'jellyfish' },
-    'crystal': { w: 38, h: 48, hp: 8, speed: 1.8, color: '#88ddff', points: 220, shape: 'crystal' },
+    'blob':      { w: 44, h: 36, hp:  5, speed: 2.2, color: '#55ff88', points: 100, shape: 'blob' },
+    'eye':       { w: 36, h: 36, hp:  8, speed: 1.8, color: '#ff55aa', points: 150, shape: 'eye' },
+    'dart':      { w: 48, h: 24, hp:  3, speed: 4.0, color: '#ffaa22', points: 120, shape: 'dart' },
+    'tank':      { w: 56, h: 48, hp: 18, speed: 1.2, color: '#aaaaff', points: 300, shape: 'tank' },
+    'spinner':   { w: 40, h: 40, hp: 11, speed: 2.5, color: '#ff6644', points: 200, shape: 'spinner' },
+    'jellyfish': { w: 50, h: 44, hp: 14, speed: 1.5, color: '#dd88ff', points: 250, shape: 'jellyfish' },
+    'crystal':   { w: 38, h: 48, hp: 12, speed: 1.8, color: '#88ddff', points: 220, shape: 'crystal' },
+    // ---- New enemy types ----
+    'sniper':    { w: 38, h: 38, hp:  6, speed: 1.5, color: '#ff7777', points: 230, shape: 'sniper' },
+    'shielded':  { w: 46, h: 46, hp:  6, speed: 1.4, color: '#ccddff', points: 380, shape: 'shielded', shielded: true },
+    'giant':     { w: 84, h: 84, hp: 80, speed: 0.7, color: '#ddaa44', points: 900, shape: 'giant' },
+    'kamikaze':  { w: 38, h: 32, hp:  4, speed: 6.0, color: '#ff3333', points: 280, shape: 'kamikaze' },
   };
   const t = baseTypes[type] || baseTypes['blob'];
   return {
@@ -941,13 +946,18 @@ function createEnemy(type, x, y, stageIdx) {
 }
 
 function getEnemyTypes(stageIdx) {
+  // Per-stage enemy pool. New enemy types unlock per the user's spec:
+  //   sniper:   from stage 2 (細いビーム高速狙撃)
+  //   shielded: from stage 3 (通常弾を弾く、ビーム/ボムでのみ撃破可)
+  //   giant:    from stage 3 (大型・高HP)
+  //   kamikaze: from stage 4 (高速体当たり)
   const pools = [
-    ['blob', 'dart'],
-    ['blob', 'eye', 'dart'],
-    ['eye', 'dart', 'spinner'],
-    ['spinner', 'tank', 'jellyfish'],
-    ['tank', 'jellyfish', 'crystal', 'spinner'],
-    ['tank', 'jellyfish', 'crystal', 'eye', 'dart', 'spinner'],
+    ['blob', 'dart', 'blob', 'dart'],                                                              // S1
+    ['blob', 'eye', 'dart', 'sniper', 'sniper'],                                                   // S2 +sniper
+    ['eye', 'dart', 'spinner', 'sniper', 'shielded', 'giant'],                                     // S3 +shielded +giant
+    ['spinner', 'tank', 'jellyfish', 'sniper', 'shielded', 'giant', 'kamikaze', 'kamikaze'],       // S4 +kamikaze
+    ['tank', 'jellyfish', 'crystal', 'spinner', 'sniper', 'shielded', 'giant', 'kamikaze'],        // S5
+    ['tank', 'jellyfish', 'crystal', 'eye', 'dart', 'spinner', 'sniper', 'shielded', 'giant', 'kamikaze'], // S6
   ];
   return pools[stageIdx] || pools[0];
 }
@@ -1301,37 +1311,74 @@ function updateEnemies(stageIdx) {
   for (let i = enemies.length-1; i >= 0; i--) {
     const e = enemies[i];
     e.angle += 0.05;
-    
-    // Move patterns
-    switch (e.movePattern) {
-      case 0: // straight
-        e.x -= e.speed;
-        break;
-      case 1: // sine wave
-        e.x -= e.speed;
-        e.y = e.startY + Math.sin(e.angle * 2) * 60;
-        break;
-      case 2: // dive
-        e.x -= e.speed * 0.7;
-        if (e.x < CANVAS_W * 0.7) {
-          const px = player.x + player.w/2, py = player.y + player.h/2;
-          const dx = px - (e.x+e.w/2), dy = py - (e.y+e.h/2);
-          const dist = Math.sqrt(dx*dx+dy*dy);
-          if (dist > 1) { e.x += dx/dist * e.speed * 0.5; e.y += dy/dist * e.speed * 0.5; }
-        }
-        break;
+
+    // ---- Movement ----
+    if (e.type === 'kamikaze') {
+      // High-speed ramming: always charges directly at player
+      const px = player.x + player.w/2, py = player.y + player.h/2;
+      const dx = px - (e.x+e.w/2), dy = py - (e.y+e.h/2);
+      const d = Math.sqrt(dx*dx+dy*dy) || 1;
+      e.x += dx/d * e.speed;
+      e.y += dy/d * e.speed;
+    } else if (e.type === 'giant') {
+      // Slow horizontal march (no diving — too easy to dodge otherwise)
+      e.x -= e.speed;
+    } else {
+      switch (e.movePattern) {
+        case 0: // straight
+          e.x -= e.speed;
+          break;
+        case 1: // sine wave
+          e.x -= e.speed;
+          e.y = e.startY + Math.sin(e.angle * 2) * 60;
+          break;
+        case 2: // dive
+          e.x -= e.speed * 0.7;
+          if (e.x < CANVAS_W * 0.7) {
+            const px = player.x + player.w/2, py = player.y + player.h/2;
+            const dx = px - (e.x+e.w/2), dy = py - (e.y+e.h/2);
+            const dist = Math.sqrt(dx*dx+dy*dy);
+            if (dist > 1) { e.x += dx/dist * e.speed * 0.5; e.y += dy/dist * e.speed * 0.5; }
+          }
+          break;
+      }
     }
-    
-    // Enemy shooting
+
+    // ---- Shooting ----
     e.shotTimer--;
     if (e.shotTimer <= 0 && e.x < CANVAS_W - 50 && e.x > 0) {
-      e.shotTimer = 60 + Math.random()*80;
       const ex = e.x, ey = e.y + e.h/2;
-      const spd = sm.bulletSpeed;
       const dx = player.x + player.w/2 - ex;
       const dy = player.y + player.h/2 - ey;
-      const dist = Math.sqrt(dx*dx+dy*dy);
-      if (dist > 0) {
+      const dist = Math.sqrt(dx*dx+dy*dy) || 1;
+      if (e.type === 'kamikaze') {
+        // Doesn't shoot — body-slams instead
+        e.shotTimer = 9999;
+      } else if (e.type === 'sniper') {
+        // Thin fast laser needle aimed at player (telegraphed via charge glow)
+        e.shotTimer = 90 + Math.random() * 50;
+        const sniperSpd = sm.bulletSpeed * 2.4;
+        enemyBullets.push({
+          x: ex, y: ey,
+          vx: sniperSpd * dx/dist, vy: sniperSpd * dy/dist,
+          w: 22, h: 3, color: '#ff5555',
+        });
+      } else if (e.type === 'giant') {
+        // Giant fires a slow heavy 3-shot spread
+        e.shotTimer = 110 + Math.random() * 50;
+        const gspd = sm.bulletSpeed * 0.85;
+        for (let s = -1; s <= 1; s++) {
+          const baseA = Math.atan2(dy, dx);
+          const a = baseA + s * 0.18;
+          enemyBullets.push({
+            x: ex, y: ey,
+            vx: Math.cos(a) * gspd, vy: Math.sin(a) * gspd,
+            w: 14, h: 14, color: '#ffcc66',
+          });
+        }
+      } else {
+        e.shotTimer = 60 + Math.random()*80;
+        const spd = sm.bulletSpeed;
         enemyBullets.push({ x: ex, y: ey, vx: spd*dx/dist, vy: spd*dy/dist, w: 8, h: 8, color: e.color });
       }
     }
@@ -1341,8 +1388,8 @@ function updateEnemies(stageIdx) {
       if (e.hp <= 0) {
         score += e.points;
         addHitEffect(e.x+e.w/2, e.y+e.h/2, e.color);
-        // Item drop — 18% chance, of which 25% is guardian, 75% is upgrade
-        if (Math.random() < 0.18) {
+        // Item drop — 4.5% chance (1/4 of original 18%), of which 25% is guardian
+        if (Math.random() < 0.045) {
           const isGuardian = Math.random() < 0.25;
           items.push({
             x: e.x+e.w/2, y: e.y+e.h/2,
@@ -1360,12 +1407,20 @@ function updateEnemies(stageIdx) {
 // ==================== COLLISION ====================
 function checkCollisions(stageIdx) {
   // Player bullets vs enemies (pierce keeps bullet alive)
+  // Shielded enemies deflect ALL normal shots — only beam/bomb can damage them.
   for (let bi = bullets.length-1; bi >= 0; bi--) {
     const b = bullets[bi];
     let consumed = false;
     for (let ei = enemies.length-1; ei >= 0; ei--) {
       const e = enemies[ei];
       if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
+        if (e.shielded) {
+          // Deflect — no damage, but show shield spark
+          addHitEffect(b.x, b.y, '#88ddff');
+          if (!b.pierce) { bullets.splice(bi, 1); consumed = true; break; }
+          // Pierce bullets get blocked too (no damage), but keep traveling
+          continue;
+        }
         e.hp -= (b.dmg || 1);
         addHitEffect(b.x, b.y, '#ffffff');
         if (!b.pierce) { bullets.splice(bi, 1); consumed = true; break; }
@@ -1486,7 +1541,7 @@ function spawnEnemies(stageIdx) {
   const sm = STAGE_CONFIG[stageIdx];
   const killCount = Math.floor(frameCount / 60);
 
-  if (enemies.length + (boss ? 1 : 0) >= (6 + stageIdx * 2)) return;
+  if (enemies.length + (boss ? 1 : 0) >= (15 + stageIdx * 5)) return;
   if (frameCount % sm.spawnRate !== 0) return;
   if (bossSpawned) return;
 
@@ -1628,6 +1683,106 @@ function drawEnemy(e) {
       ctx.moveTo(cx, e.y+5);
       ctx.lineTo(e.x+e.w-10, cy);
       ctx.lineTo(cx, e.y+e.h/2);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'sniper': {
+      // Sniper drone: round body + barrel + charge glow when about to fire
+      ctx.beginPath(); ctx.arc(cx + 4, cy, e.w*0.34, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Barrel (pointing left toward player)
+      ctx.fillStyle = '#552222';
+      ctx.fillRect(e.x - 8, cy - 2, 18, 4);
+      // Sight (small dark spot)
+      ctx.fillStyle = '#220000';
+      ctx.beginPath(); ctx.arc(cx + 4, cy, 4, 0, Math.PI*2); ctx.fill();
+      // Charge glow when shotTimer is about to fire
+      if (e.shotTimer < 30 && e.shotTimer > 0) {
+        const ch = (30 - e.shotTimer) / 30;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = '#ff3333';
+        ctx.fillStyle = `rgba(255,${100 - ch*60},${100 - ch*60},${0.6 + ch*0.4})`;
+        ctx.beginPath(); ctx.arc(e.x - 6, cy, 3 + ch*5, 0, Math.PI*2); ctx.fill();
+      }
+      break;
+    }
+    case 'shielded': {
+      // Inner core
+      ctx.beginPath(); ctx.arc(cx, cy, e.w*0.28, 0, Math.PI*2); ctx.fill();
+      // Outer shield ring (rotates)
+      ctx.shadowBlur = 22;
+      ctx.shadowColor = '#aaccff';
+      ctx.strokeStyle = '#ddeeff';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(cx, cy, e.w/2 - 2, 0, Math.PI*2); ctx.stroke();
+      // Bright rotating arc highlights
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      for (let j = 0; j < 4; j++) {
+        const a = e.angle * 2 + j * Math.PI/2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, e.w/2 - 2, a, a + 0.35);
+        ctx.stroke();
+      }
+      // "BEAM/BOMB ONLY" inner cross (subtle marker)
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('★', cx, cy + 3);
+      break;
+    }
+    case 'giant': {
+      // Big armored sphere with rotating plates and glowing eye
+      ctx.beginPath(); ctx.arc(cx, cy, e.w/2 - 4, 0, Math.PI*2); ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Rotating armor plates
+      ctx.fillStyle = '#aa7733';
+      for (let j = 0; j < 8; j++) {
+        const a = j / 8 * Math.PI * 2 + e.angle * 0.4;
+        const px = cx + Math.cos(a) * (e.w/2 - 12);
+        const py = cy + Math.sin(a) * (e.w/2 - 12);
+        ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+      }
+      // Glowing red core eye
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = '#ff3333';
+      ctx.fillStyle = '#ff4444';
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffeecc';
+      ctx.beginPath(); ctx.arc(cx + Math.cos(e.angle)*4, cy + Math.sin(e.angle)*4, 6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath(); ctx.arc(cx + Math.cos(e.angle)*4, cy + Math.sin(e.angle)*4, 3, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'kamikaze': {
+      // Pointed arrow facing toward the player
+      const px = player.x + player.w/2, py = player.y + player.h/2;
+      const ang = Math.atan2(py - cy, px - cx);
+      ctx.translate(cx, cy);
+      ctx.rotate(ang);
+      ctx.beginPath();
+      ctx.moveTo(e.w/2, 0);
+      ctx.lineTo(-e.w/2, -e.h/2);
+      ctx.lineTo(-e.w/3, 0);
+      ctx.lineTo(-e.w/2, e.h/2);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Inner glow stripe
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffaa66';
+      ctx.beginPath();
+      ctx.moveTo(e.w/3, 0);
+      ctx.lineTo(-e.w/4, -e.h/4);
+      ctx.lineTo(-e.w/4, e.h/4);
+      ctx.closePath(); ctx.fill();
+      // Trailing flame
+      ctx.fillStyle = `rgba(255,180,80,${0.5 + Math.random()*0.4})`;
+      ctx.beginPath();
+      ctx.moveTo(-e.w/2, -e.h/3);
+      ctx.lineTo(-e.w/2 - 12 - Math.random()*6, 0);
+      ctx.lineTo(-e.w/2, e.h/3);
       ctx.closePath(); ctx.fill();
       break;
     }
@@ -1971,12 +2126,25 @@ function drawBullets() {
   }
   
   for (let b of enemyBullets) {
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.shadowColor = b.color;
     ctx.fillStyle = b.color;
-    ctx.beginPath();
-    ctx.arc(b.x + b.w/2, b.y + b.h/2, Math.max(b.w, b.h)/2, 0, Math.PI*2);
-    ctx.fill();
+    if (b.w / b.h >= 3 || b.h / b.w >= 3) {
+      // Thin/elongated bullet (sniper laser needle, etc.) — draw as a streak
+      const ang = Math.atan2(b.vy, b.vx);
+      ctx.save();
+      ctx.translate(b.x + b.w/2, b.y + b.h/2);
+      ctx.rotate(ang);
+      ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+      // Bright leading tip
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(b.w/2 - 4, -b.h/2, 4, b.h);
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.arc(b.x + b.w/2, b.y + b.h/2, Math.max(b.w, b.h)/2, 0, Math.PI*2);
+      ctx.fill();
+    }
     ctx.shadowBlur = 0;
   }
 }
