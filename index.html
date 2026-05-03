@@ -304,6 +304,47 @@ canvas {
   opacity: 0.55;
   background: rgba(80, 30, 30, 0.6);
 }
+/* Admin debug panel — hidden unless URL hash unlocks it */
+#adminPanel { display: none; margin-top: 18px; }
+#adminPanel.show { display: block; }
+#adminPanel .adminLabel {
+  color: #ff8866;
+  font-size: clamp(10px, 1.6vw, 14px);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+#adminPanel .adminSub {
+  color: #aaccff;
+  font-size: clamp(8px, 1.2vw, 11px);
+  margin-bottom: 8px;
+}
+#stageSelect {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.stageBtn {
+  padding: 8px 16px;
+  background: rgba(80, 80, 100, 0.5);
+  border: 2px solid rgba(255,255,255,0.4);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(10px, 1.4vw, 13px);
+  font-weight: bold;
+  min-width: 36px;
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+}
+.stageBtn:hover { background: rgba(120, 120, 150, 0.6); }
+.stageBtn:active { transform: translateY(1px); }
+.stageBtn.selected {
+  background: linear-gradient(180deg, #ffcc66 0%, #cc8822 100%);
+  border-color: #ffeebb;
+  color: #000;
+  box-shadow: 0 0 12px rgba(255,180,80,0.6);
+}
 </style>
 </head>
 <body>
@@ -335,6 +376,18 @@ canvas {
     <h1>✨ MAGICAL SHOOTER ✨<br>魔法少女系戦闘Vtuber ももりの</h1>
     <p>地球に迫る宇宙怪獣の大軍！</p>
     <p>魔法少女系戦闘Vtuber ももりのが人類の命運を賭けて戦う！</p>
+    <div id="adminPanel">
+      <p class="adminLabel">🔧 ADMIN DEBUG MODE 🔧</p>
+      <p class="adminSub">START STAGE</p>
+      <div id="stageSelect">
+        <button class="stageBtn selected" data-stage="0">1</button>
+        <button class="stageBtn" data-stage="1">2</button>
+        <button class="stageBtn" data-stage="2">3</button>
+        <button class="stageBtn" data-stage="3">4</button>
+        <button class="stageBtn" data-stage="4">5</button>
+        <button class="stageBtn" data-stage="5">6</button>
+      </div>
+    </div>
     <button class="btn" id="startBtn">▶ GAME START</button>
   </div>
 </div>
@@ -377,6 +430,13 @@ let joystick = { dx: 0, dy: 0, active: false };
 let mobileShootHeld = false;
 let isMobileDevice = false;
 let isPaused = false;
+
+// Admin debug mode — gated by URL hash. Use #admin=Take35@pla to unlock.
+// NOTE: this is a static HTML file; the password is visible in source.
+// Treat it as obscurity for casual users, not real authentication.
+const ADMIN_PASS = 'Take35@pla';
+const isAdminMode = (window.location.hash || '').includes('admin=' + ADMIN_PASS);
+let adminStartStage = 0; // 0-indexed (0 = Stage 1)
 
 // Gamepad input state (combined with keyboard/touch in updatePlayer)
 let gpInput = { dx: 0, dy: 0, shoot: false, connected: false };
@@ -2356,6 +2416,14 @@ function drawHUD() {
     }
   }
 
+  // Admin mode indicator (top-right corner, subtle)
+  if (isAdminMode) {
+    ctx.fillStyle = 'rgba(255,140,80,0.8)';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('🔧 ADMIN', CANVAS_W - 54, CANVAS_H - 6);
+  }
+
   // Sync mobile button ammo counts with game state
   const beamEl = document.getElementById('beamCount');
   const bombEl = document.getElementById('bombCount');
@@ -2512,14 +2580,14 @@ function showOverlay(type) {
 function restartGame() {
   if (score > highScore) highScore = score;
   score = 0;
-  stage = 1;
+  stage = (isAdminMode ? adminStartStage : 0) + 1;
   gameState = 'playing';
   initPlayer();
   initStage();
   if (isPaused) togglePause();
   document.getElementById('overlay').style.display = 'none';
-  startBGM(0);
-  setTimeout(() => showStageTitle(STAGE_CONFIG[0].name), 500);
+  startBGM(stage - 1);
+  setTimeout(() => showStageTitle(STAGE_CONFIG[stage-1].name), 500);
 }
 
 // ==================== RESIZE ====================
@@ -2906,16 +2974,29 @@ window.addEventListener('load', () => {
   initStars();
   setupMobile();
   
+  // Admin panel: reveal stage selector when URL hash unlocks debug mode
+  if (isAdminMode) {
+    const panel = document.getElementById('adminPanel');
+    if (panel) panel.classList.add('show');
+    document.querySelectorAll('.stageBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        adminStartStage = parseInt(btn.dataset.stage, 10) || 0;
+        document.querySelectorAll('.stageBtn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+  }
+
   document.getElementById('startBtn').addEventListener('click', () => {
     initAudio();
     document.getElementById('overlay').style.display = 'none';
     initPlayer();
     initStage();
     score = 0;
-    stage = 1;
+    stage = (isAdminMode ? adminStartStage : 0) + 1;
     gameState = 'playing';
-    startBGM(0);
-    setTimeout(() => showStageTitle(STAGE_CONFIG[0].name), 500);
+    startBGM(stage - 1);
+    setTimeout(() => showStageTitle(STAGE_CONFIG[stage-1].name), 500);
   });
   
   // Game Over overlay check
