@@ -569,7 +569,7 @@ function initPlayer() {
   beamCooldown = false;
 }
 
-const MAX_GUARDIANS = 4;
+const MAX_GUARDIANS = 5;
 function addGuardian() {
   if (guardians.length >= MAX_GUARDIANS) return;
   const i = guardians.length;
@@ -1388,13 +1388,17 @@ function updateEnemies(stageIdx) {
       if (e.hp <= 0) {
         score += e.points;
         addHitEffect(e.x+e.w/2, e.y+e.h/2, e.color);
-        // Item drop — 4.5% chance (1/4 of original 18%), of which 25% is guardian
-        if (Math.random() < 0.045) {
-          const isGuardian = Math.random() < 0.25;
+        // Item drop — 5% chance (4.5% +10%), split 50% upgrade / 25% guardian / 25% heal
+        if (Math.random() < 0.05) {
+          const r = Math.random();
+          let type;
+          if (r < 0.5) type = 'upgrade';
+          else if (r < 0.75) type = 'guardian';
+          else type = 'heal';
           items.push({
             x: e.x+e.w/2, y: e.y+e.h/2,
             vx: -1.5, vy: (Math.random()-0.5),
-            type: isGuardian ? 'guardian' : 'upgrade',
+            type,
             life: 300,
           });
         }
@@ -1479,7 +1483,7 @@ function playerHit() {
   player.hitFlash = 120;
   player.invincible = 120;
   // Reset upgrades on hit
-  if (player.upgradeLevel > 0) player.upgradeLevel--;
+  player.upgradeLevel = Math.max(0, player.upgradeLevel - 2);
   
   addHitEffect(player.x + player.w/2, player.y + player.h/2, '#ff4444');
   playSound('player_hit');
@@ -1501,6 +1505,7 @@ function addHitEffect(x, y, color) {
 
 // ==================== ITEMS ====================
 const MAX_UPGRADE = 15;
+const MAX_LIFE = 5;
 function updateItems() {
   for (let i = items.length-1; i >= 0; i--) {
     const it = items[i];
@@ -1526,6 +1531,16 @@ function updateItems() {
           score += 20;
         }
         addHitEffect(it.x, it.y, '#88ddff');
+        playSound('upgrade');
+      } else if (it.type === 'heal') {
+        // Heal item — restores 1 life (capped); bonus score if already full
+        if (player.life < MAX_LIFE) {
+          player.life++;
+          score += 100;
+        } else {
+          score += 30;
+        }
+        addHitEffect(it.x, it.y, '#ff88aa');
         playSound('upgrade');
       }
       items.splice(i, 1);
@@ -2198,6 +2213,33 @@ function drawItems() {
       ctx.font = '8px monospace';
       ctx.textAlign = 'center';
       ctx.fillText('GUARD', it.x, it.y - 18);
+    } else if (it.type === 'heal') {
+      // Heal item: pink heart with white cross, pulsing
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#ff66aa';
+      ctx.save();
+      ctx.translate(it.x, it.y);
+      const pulse = 1 + Math.sin(frameCount * 0.18) * 0.08;
+      ctx.scale(pulse, pulse);
+      // Heart shape
+      ctx.fillStyle = '#ff5588';
+      ctx.beginPath();
+      ctx.moveTo(0, 4);
+      ctx.bezierCurveTo(-12, -6, -12, -14, 0, -8);
+      ctx.bezierCurveTo(12, -14, 12, -6, 0, 4);
+      ctx.lineTo(0, 9);
+      ctx.closePath();
+      ctx.fill();
+      // White medical cross on top
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-2, -8, 4, 10);
+      ctx.fillRect(-5, -5, 10, 4);
+      ctx.restore();
+      ctx.fillStyle = '#ffaacc';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('HEAL', it.x, it.y - 18);
     } else {
       // Upgrade item: spinning yellow star
       ctx.shadowBlur = 15;
@@ -2261,7 +2303,7 @@ function drawHUD() {
   ctx.font = '13px monospace';
   ctx.shadowBlur = 8;
   ctx.shadowColor = '#ff44aa';
-  ctx.fillText('LIFE: ' + '♥'.repeat(Math.max(0,player.life)) + '♡'.repeat(Math.max(0,3-player.life)), 10, 50);
+  ctx.fillText('LIFE: ' + '♥'.repeat(Math.max(0,player.life)) + '♡'.repeat(Math.max(0, MAX_LIFE - player.life)), 10, 50);
   ctx.shadowBlur = 0;
   
   // Guardians indicator (filled / empty up to MAX_GUARDIANS)
