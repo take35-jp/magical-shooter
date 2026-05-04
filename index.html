@@ -2121,7 +2121,9 @@ function drawBoss() {
 function drawPlayer() {
   if (gameState !== 'playing' && gameState !== 'stageClear') return;
   
-  const img = beamActive ? images.beam : (player.hitFlash > 0 ? images.hit : images.player);
+  // Normal shooting / bomb / idle all use the beam-pose sprite now.
+  // Only the hit flash uses a different image.
+  const img = player.hitFlash > 0 ? images.hit : images.beam;
   
   if (player.invincible > 0 && Math.floor(player.invincible/4) % 2) {
     ctx.globalAlpha = 0.4;
