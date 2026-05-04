@@ -1023,34 +1023,40 @@ function fireSword() {
   const cx = player.x + player.w/2;
   const cy = player.y + player.h/2;
 
-  // Slash hits everything inside the disc:
+  // Slash hits everything whose bounding box overlaps the disc:
   //   - shielded enemy → damage + knockback
   //   - regular enemy  → knockback only (no damage)
+  // Use AABB-vs-circle (closest-point distance) so big enemies (GIANT 84x84)
+  // are hit when any part of their body is inside the sword range.
   for (const e of enemies) {
+    const closestX = Math.max(e.x, Math.min(cx, e.x + e.w));
+    const closestY = Math.max(e.y, Math.min(cy, e.y + e.h));
+    const adx = closestX - cx, ady = closestY - cy;
+    if (adx*adx + ady*ady >= SWORD_RANGE * SWORD_RANGE) continue;
     const ex = e.x + e.w/2, ey = e.y + e.h/2;
-    const dx = ex - cx, dy = ey - cy;
-    const d = Math.sqrt(dx*dx + dy*dy);
-    if (d >= SWORD_RANGE) continue;
-    const dist = d || 1;
-    const ux = dx / dist, uy = dy / dist;
+    // Knockback uses center-to-center direction so the impulse is intuitive
+    const kdx = ex - cx, kdy = ey - cy;
+    const kdist = Math.sqrt(kdx*kdx + kdy*kdy) || 1;
+    const ux = kdx / kdist, uy = kdy / kdist;
     if (e.shielded) {
       e.hp -= 12; // sword can damage shielded enemies
       addHitEffect(ex, ey, '#ffee88');
     } else {
       addHitEffect(ex, ey, '#aaccdd');
     }
-    // Knockback impulse for both — decays in updateEnemies
     e.kbVx = ux * 12;
     e.kbVy = uy * 12;
   }
-  // Deflect enemy bullets outward (does not consume them; they fly off harmlessly)
+  // Deflect enemy bullets — measure distance from bullet CENTER, not top-left
   for (const b of enemyBullets) {
-    const dx = b.x - cx, dy = b.y - cy;
-    const d = Math.sqrt(dx*dx + dy*dy);
-    if (d >= SWORD_RANGE) continue;
-    addHitEffect(b.x, b.y, '#ffee88');
+    const bcx = b.x + (b.w || 0) / 2;
+    const bcy = b.y + (b.h || 0) / 2;
+    const dx = bcx - cx, dy = bcy - cy;
+    const d2 = dx*dx + dy*dy;
+    if (d2 >= SWORD_RANGE * SWORD_RANGE) continue;
+    addHitEffect(bcx, bcy, '#ffee88');
     const speed = Math.max(8, Math.sqrt(b.vx*b.vx + b.vy*b.vy));
-    const dist = d || 1;
+    const dist = Math.sqrt(d2) || 1;
     const ux = dx / dist, uy = dy / dist;
     b.vx = ux * speed;
     b.vy = uy * speed;
@@ -2541,16 +2547,48 @@ function drawHUD() {
   ctx.font = '9px monospace';
   ctx.fillText('GUARD:' + '◉'.repeat(guardians.length) + '◌'.repeat(MAX_GUARDIANS - guardians.length), 10, 64);
   
-  // Weapons - top right (with PC key labels)
+  // POWER level — top right (BEAM/BOMB moved to bottom-left HUD strip)
   ctx.textAlign = 'right';
   ctx.fillStyle = '#ffff88';
   ctx.font = '9px monospace';
-  if (isMobileDevice) {
-    ctx.fillText('BOMB:' + stageBombs + '  BEAM:' + stageBeam, CANVAS_W - 10, 14);
-  } else {
-    ctx.fillText('BOMB:' + stageBombs + ' [X]   BEAM:' + stageBeam + ' [C]', CANVAS_W - 10, 14);
+  ctx.fillText('POWER: LV' + player.upgradeLevel + '/' + MAX_UPGRADE, CANVAS_W - 10, 14);
+
+  // Weapons strip — bottom-left, stacked vertically (large + color-coded)
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 16px monospace';
+  const wx = 12;
+  const wyBeam = CANVAS_H - 88;
+  const wyBomb = CANVAS_H - 64;
+  const wySword = CANVAS_H - 40;
+  // BEAM (cyan)
+  const beamReady = stageBeam > 0;
+  ctx.shadowBlur = beamReady ? 10 : 0;
+  ctx.shadowColor = '#44aaff';
+  ctx.fillStyle = beamReady ? '#88ddff' : '#445566';
+  ctx.fillText(`BEAM ${stageBeam}`, wx, wyBeam);
+  // BOMB (gold)
+  const bombReady = stageBombs > 0;
+  ctx.shadowBlur = bombReady ? 10 : 0;
+  ctx.shadowColor = '#ff8822';
+  ctx.fillStyle = bombReady ? '#ffcc66' : '#665544';
+  ctx.fillText(`BOMB ${stageBombs}`, wx, wyBomb);
+  // SWORD CT (pale gold; shows OK or seconds remaining to 1 decimal)
+  const swordReady = swordCooldown <= 0;
+  ctx.shadowBlur = swordReady ? 10 : 0;
+  ctx.shadowColor = '#ffaa44';
+  ctx.fillStyle = swordReady ? '#ffee88' : '#776655';
+  const swordText = swordReady ? 'SWORD OK' : `SWORD ${(swordCooldown / 60).toFixed(1)}s`;
+  ctx.fillText(swordText, wx, wySword);
+  ctx.shadowBlur = 0;
+  // SWORD cooldown progress bar under the SWORD label
+  if (!swordReady) {
+    const barW = 130, barH = 4;
+    ctx.fillStyle = 'rgba(80,60,30,0.6)';
+    ctx.fillRect(wx, wySword + 6, barW, barH);
+    const pct = 1 - swordCooldown / SWORD_COOLDOWN;
+    ctx.fillStyle = '#ffaa44';
+    ctx.fillRect(wx, wySword + 6, barW * pct, barH);
   }
-  ctx.fillText('POWER: LV' + player.upgradeLevel + '/' + MAX_UPGRADE, CANVAS_W - 10, 28);
 
   // PC key reference footer (bottom-right)
   if (!isMobileDevice) {
