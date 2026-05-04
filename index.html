@@ -1023,24 +1023,39 @@ function fireSword() {
   const cx = player.x + player.w/2;
   const cy = player.y + player.h/2;
 
-  // Slash kills shielded enemies in range; normal enemies are untouched
+  // Slash hits everything inside the disc:
+  //   - shielded enemy → damage + knockback
+  //   - regular enemy  → knockback only (no damage)
   for (const e of enemies) {
-    if (!e.shielded) continue;
     const ex = e.x + e.w/2, ey = e.y + e.h/2;
-    const d = Math.sqrt((ex-cx)**2 + (ey-cy)**2);
-    if (d < SWORD_RANGE) {
-      e.hp -= 9999; // instant kill
+    const dx = ex - cx, dy = ey - cy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d >= SWORD_RANGE) continue;
+    const dist = d || 1;
+    const ux = dx / dist, uy = dy / dist;
+    if (e.shielded) {
+      e.hp -= 12; // sword can damage shielded enemies
       addHitEffect(ex, ey, '#ffee88');
+    } else {
+      addHitEffect(ex, ey, '#aaccdd');
     }
+    // Knockback impulse for both — decays in updateEnemies
+    e.kbVx = ux * 12;
+    e.kbVy = uy * 12;
   }
-  // Cancel any enemy bullets in range
-  for (let i = enemyBullets.length - 1; i >= 0; i--) {
-    const b = enemyBullets[i];
-    const d = Math.sqrt((b.x-cx)**2 + (b.y-cy)**2);
-    if (d < SWORD_RANGE) {
-      addHitEffect(b.x, b.y, '#ffffff');
-      enemyBullets.splice(i, 1);
-    }
+  // Deflect enemy bullets outward (does not consume them; they fly off harmlessly)
+  for (const b of enemyBullets) {
+    const dx = b.x - cx, dy = b.y - cy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d >= SWORD_RANGE) continue;
+    addHitEffect(b.x, b.y, '#ffee88');
+    const speed = Math.max(8, Math.sqrt(b.vx*b.vx + b.vy*b.vy));
+    const dist = d || 1;
+    const ux = dx / dist, uy = dy / dist;
+    b.vx = ux * speed;
+    b.vy = uy * speed;
+    b.behavior = null;     // strip homing/orbit/wave behavior
+    b.deflected = true;    // skip player-collision in checkCollisions
   }
   // Burst sparkle ring on swing start
   for (let i = 0; i < 50; i++) {
@@ -1503,6 +1518,13 @@ function updateEnemies(stageIdx) {
       // High-speed straight charge along the velocity locked at spawn — no homing
       e.x += e.kVx;
       e.y += e.kVy;
+    } else if (e.type === 'shielded') {
+      // Slow homing toward player while continuing to shoot
+      const px = player.x + player.w/2, py = player.y + player.h/2;
+      const dx = px - (e.x + e.w/2), dy = py - (e.y + e.h/2);
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      e.x += dx/d * e.speed;
+      e.y += dy/d * e.speed;
     } else if (e.type === 'giant') {
       // Slow horizontal march (no diving — too easy to dodge otherwise)
       e.x -= e.speed;
@@ -1525,6 +1547,16 @@ function updateEnemies(stageIdx) {
           }
           break;
       }
+    }
+
+    // Sword knockback — applied on top of normal movement, decays each frame
+    if (e.kbVx || e.kbVy) {
+      e.x += e.kbVx;
+      e.y += e.kbVy;
+      e.kbVx *= 0.85;
+      e.kbVy *= 0.85;
+      if (Math.abs(e.kbVx) < 0.15) e.kbVx = 0;
+      if (Math.abs(e.kbVy) < 0.15) e.kbVy = 0;
     }
 
     // ---- Shooting ----
@@ -1638,9 +1670,10 @@ function checkCollisions(stageIdx) {
   
   if (player.invincible > 0) return;
   
-  // Enemy bullets vs player
+  // Enemy bullets vs player (deflected bullets pass through harmlessly)
   for (let bi = enemyBullets.length-1; bi >= 0; bi--) {
     const b = enemyBullets[bi];
+    if (b.deflected) continue;
     const px = player.x + 15, py = player.y + 10, pw = player.w - 30, ph = player.h - 20;
     if (b.x < px+pw && b.x+b.w > px && b.y < py+ph && b.y+b.h > py) {
       enemyBullets.splice(bi, 1);
@@ -2665,6 +2698,18 @@ function drawSword() {
   const fade = 1 - t * 0.4;
 
   ctx.save();
+
+  // Filled disc — visualizes the actual hit area (inside the circle is valid)
+  const discAlpha = 0.18 * (1 - t * 0.7);
+  ctx.fillStyle = `rgba(255,240,150,${discAlpha})`;
+  ctx.beginPath();
+  ctx.arc(cx, cy, SWORD_RANGE, 0, Math.PI * 2);
+  ctx.fill();
+  // Disc rim
+  ctx.strokeStyle = `rgba(255,240,180,${0.4 * (1 - t)})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
   ctx.shadowBlur = 24;
   ctx.shadowColor = '#ffee88';
 
