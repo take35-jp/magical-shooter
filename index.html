@@ -371,6 +371,26 @@ canvas {
   color: #000;
   box-shadow: 0 0 12px rgba(255,180,80,0.6);
 }
+#powerSelect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 4px;
+}
+#powerSlider {
+  width: clamp(160px, 26vw, 240px);
+  accent-color: #ffaa44;
+}
+#powerValue {
+  display: inline-block;
+  min-width: 56px;
+  text-align: left;
+  font-weight: bold;
+  color: #ffcc66;
+  font-size: clamp(11px, 1.4vw, 13px);
+  text-shadow: 0 0 8px rgba(255,180,80,0.5);
+}
 /* Title-screen art + text two-column layout */
 #titleBody {
   display: flex;
@@ -451,6 +471,11 @@ canvas {
             <button class="stageBtn" data-stage="4">5</button>
             <button class="stageBtn" data-stage="5">6</button>
           </div>
+          <p class="adminSub">START POWER LV (0–15)</p>
+          <div id="powerSelect">
+            <input type="range" id="powerSlider" min="0" max="15" value="0" step="1">
+            <span id="powerValue">LV 0</span>
+          </div>
         </div>
         <button class="btn" id="startBtn">▶ GAME START</button>
       </div>
@@ -510,6 +535,7 @@ let isPaused = false;
 const ADMIN_PASS = 'Take35@pla';
 const isAdminMode = (window.location.hash || '').includes('admin=' + ADMIN_PASS);
 let adminStartStage = 0; // 0-indexed (0 = Stage 1)
+let adminStartPower = 0; // 0..MAX_UPGRADE
 
 // Gamepad input state (combined with keyboard/touch in updatePlayer)
 let gpInput = { dx: 0, dy: 0, shoot: false, connected: false };
@@ -901,24 +927,28 @@ function fireShot() {
     bullets.push({ x: bx, y: by - 12, vx: 16, vy: 0, w: 24, h: 3, dmg: dmg + 1, color: '#ffff88', pierce: true });
     bullets.push({ x: bx, y: by + 12, vx: 16, vy: 0, w: 24, h: 3, dmg: dmg + 1, color: '#ffff88', pierce: true });
   }
-  // LV13: rear-diagonal coverage
+  // LV13+: explosive auto-targeting homing missiles (sword-range AOE on impact)
+  // LV13: 2 missiles | LV14: 5 missiles | LV15: 8 missiles
+  const mkMissile = (vy) => ({
+    x: bx, y: by, vx: 5, vy, w: 18, h: 7,
+    dmg: dmg + 1,
+    color: '#ff6644',
+    homing: true, hSpeed: 6, turnRate: 0.07,
+    explodeOnHit: true,
+  });
   if (lv >= 13) {
-    bullets.push({ x: bx, y: by, vx: -8, vy: -7, w: 10, h: 4, dmg, color });
-    bullets.push({ x: bx, y: by, vx: -8, vy:  7, w: 10, h: 4, dmg, color });
+    bullets.push(mkMissile(-3));
+    bullets.push(mkMissile( 3));
   }
-  // LV14: starburst diagonals
   if (lv >= 14) {
-    for (let a of [-Math.PI*0.35, -Math.PI*0.22, Math.PI*0.22, Math.PI*0.35]) {
-      bullets.push({ x: bx, y: by, vx: Math.cos(a)*11, vy: Math.sin(a)*11, w: 8, h: 4, dmg, color });
-    }
+    bullets.push(mkMissile(-8));
+    bullets.push(mkMissile( 0));
+    bullets.push(mkMissile( 8));
   }
-  // LV15: spinning energy ring (rotates every shot)
   if (lv >= 15) {
-    const t = frameCount * 0.4;
-    for (let i = 0; i < 4; i++) {
-      const a = t + (i / 4) * Math.PI * 2;
-      bullets.push({ x: bx, y: by, vx: Math.cos(a)*8 + 4, vy: Math.sin(a)*8, w: 10, h: 10, dmg: dmg + 1, color: '#ff88ff' });
-    }
+    bullets.push(mkMissile(-12));
+    bullets.push(mkMissile(-5));
+    bullets.push(mkMissile( 12));
   }
 
   playSound('shoot');
@@ -998,6 +1028,39 @@ function explodeBomb(bx, by) {
     const bxc = boss.x + boss.w/2, byc = boss.y + boss.h/2;
     const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
     if (d < bombR + boss.w/2) boss.hp -= bombDmg;
+  }
+  playSound('bomb_explode');
+}
+
+// LV15 missile impact explosion — sword-range AOE that bypasses shields.
+function explodeMissile(bx, by) {
+  const r = SWORD_RANGE;
+  const dmg = 6 + player.upgradeLevel * 0.5; // light scaling with power
+  // Particle burst
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const spd = 3 + Math.random() * 5;
+    particles.push({
+      x: bx, y: by,
+      vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+      life: 22 + Math.random() * 18, maxLife: 40,
+      color: `hsl(${Math.random() * 40 + 5}, 100%, ${60 + Math.random() * 30}%)`,
+      size: 3 + Math.random() * 4,
+    });
+  }
+  // Damage all enemies in range — AOE bypasses shields
+  for (const e of enemies) {
+    const ex = e.x + e.w/2, ey = e.y + e.h/2;
+    const d = Math.sqrt((ex-bx)**2 + (ey-by)**2);
+    if (d < r) {
+      e.hp -= dmg;
+      addHitEffect(ex, ey, '#ffaa44');
+    }
+  }
+  if (boss) {
+    const bxc = boss.x + boss.w/2, byc = boss.y + boss.h/2;
+    const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
+    if (d < r + boss.w/2) boss.hp -= dmg;
   }
   playSound('bomb_explode');
 }
@@ -1493,6 +1556,42 @@ function updateBullets() {
   // Player bullets
   for (let i = bullets.length-1; i >= 0; i--) {
     const b = bullets[i];
+    // Homing missiles: steer toward the nearest live target each frame
+    if (b.homing) {
+      let tx = null, ty = null, bestD2 = Infinity;
+      for (const e of enemies) {
+        const ex = e.x + e.w/2, ey = e.y + e.h/2;
+        const dxp = ex - b.x, dyp = ey - b.y;
+        const d2 = dxp*dxp + dyp*dyp;
+        if (d2 < bestD2) { bestD2 = d2; tx = ex; ty = ey; }
+      }
+      if (boss) {
+        const ex = boss.x + boss.w/2, ey = boss.y + boss.h/2;
+        const dxp = ex - b.x, dyp = ey - b.y;
+        const d2 = dxp*dxp + dyp*dyp;
+        if (d2 < bestD2) { bestD2 = d2; tx = ex; ty = ey; }
+      }
+      if (tx !== null) {
+        const dxp = tx - b.x, dyp = ty - b.y;
+        const d = Math.sqrt(dxp*dxp + dyp*dyp) || 1;
+        const tvx = dxp/d * (b.hSpeed || 6);
+        const tvy = dyp/d * (b.hSpeed || 6);
+        const tr = b.turnRate || 0.07;
+        b.vx = b.vx * (1 - tr) + tvx * tr;
+        b.vy = b.vy * (1 - tr) + tvy * tr;
+      }
+      // Engine trail puffs
+      if (Math.random() < 0.55) {
+        particles.push({
+          x: b.x + b.w/2, y: b.y + b.h/2,
+          vx: -b.vx * 0.2 + (Math.random()-0.5),
+          vy: -b.vy * 0.2 + (Math.random()-0.5),
+          life: 12 + Math.random() * 6, maxLife: 18,
+          color: b.explodeOnHit ? '#ff8844' : '#ffcc88',
+          size: 2 + Math.random() * 2,
+        });
+      }
+    }
     b.x += b.vx; b.y += b.vy;
     if (b.x > CANVAS_W + 20 || b.x < -40 || b.y < -20 || b.y > CANVAS_H + 20) {
       bullets.splice(i, 1);
@@ -1676,17 +1775,22 @@ function updateEnemies(stageIdx) {
 function checkCollisions(stageIdx) {
   // Player bullets vs enemies (pierce keeps bullet alive)
   // Shielded enemies deflect ALL normal shots — only beam/bomb can damage them.
+  // Explosive missiles (LV15) detonate on first contact regardless of shield.
   for (let bi = bullets.length-1; bi >= 0; bi--) {
     const b = bullets[bi];
     let consumed = false;
     for (let ei = enemies.length-1; ei >= 0; ei--) {
       const e = enemies[ei];
       if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
+        if (b.explodeOnHit) {
+          // LV15 missile — always detonates, AOE damages everything in range
+          addHitEffect(b.x, b.y, '#ff8844');
+          explodeMissile(b.x + b.w/2, b.y + b.h/2);
+          bullets.splice(bi, 1); consumed = true; break;
+        }
         if (e.shielded) {
-          // Deflect — no damage, but show shield spark
           addHitEffect(b.x, b.y, '#88ddff');
           if (!b.pierce) { bullets.splice(bi, 1); consumed = true; break; }
-          // Pierce bullets get blocked too (no damage), but keep traveling
           continue;
         }
         e.hp -= (b.dmg || 1);
@@ -1704,6 +1808,9 @@ function checkCollisions(stageIdx) {
       if (b.x < boss.x+boss.w && b.x+b.w > boss.x && b.y < boss.y+boss.h && b.y+b.h > boss.y) {
         boss.hp -= (b.dmg || 1);
         addHitEffect(b.x, b.y, '#ffffff');
+        if (b.explodeOnHit) {
+          explodeMissile(b.x + b.w/2, b.y + b.h/2);
+        }
         if (!b.pierce) bullets.splice(bi, 1);
       }
     }
@@ -2886,6 +2993,9 @@ function restartGame() {
   gameState = 'playing';
   initPlayer();
   initStage();
+  if (isAdminMode) {
+    player.upgradeLevel = Math.max(0, Math.min(MAX_UPGRADE, adminStartPower));
+  }
   if (isPaused) togglePause();
   document.getElementById('overlay').style.display = 'none';
   startBGM(stage - 1);
@@ -3369,7 +3479,7 @@ window.addEventListener('load', () => {
   initStars();
   setupMobile();
   
-  // Admin panel: reveal stage selector when URL hash unlocks debug mode
+  // Admin panel: reveal stage selector + power slider when URL hash unlocks debug mode
   if (isAdminMode) {
     const panel = document.getElementById('adminPanel');
     if (panel) panel.classList.add('show');
@@ -3380,6 +3490,17 @@ window.addEventListener('load', () => {
         btn.classList.add('selected');
       });
     });
+    const slider = document.getElementById('powerSlider');
+    const valueLbl = document.getElementById('powerValue');
+    if (slider) {
+      const sync = () => {
+        adminStartPower = parseInt(slider.value, 10) || 0;
+        if (valueLbl) valueLbl.textContent = 'LV ' + adminStartPower;
+      };
+      slider.addEventListener('input', sync);
+      slider.addEventListener('change', sync);
+      sync();
+    }
   }
 
   document.getElementById('startBtn').addEventListener('click', () => {
@@ -3389,6 +3510,9 @@ window.addEventListener('load', () => {
     initStage();
     score = 0;
     stage = (isAdminMode ? adminStartStage : 0) + 1;
+    if (isAdminMode) {
+      player.upgradeLevel = Math.max(0, Math.min(MAX_UPGRADE, adminStartPower));
+    }
     gameState = 'playing';
     startBGM(stage - 1);
     setTimeout(() => showStageTitle(STAGE_CONFIG[stage-1].name), 500);
