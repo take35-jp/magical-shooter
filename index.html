@@ -2121,9 +2121,12 @@ function drawBoss() {
 function drawPlayer() {
   if (gameState !== 'playing' && gameState !== 'stageClear') return;
   
-  // Sprite priority: hit flash > sword swing > everything else (beam pose).
+  // Sprite priority: hit flash > sword swing > beam/shooting > idle (original).
+  // Idle (no shoot button held) reverts to the original player pose.
+  const isShooting = keys['Space'] || keys['KeyZ'] || mobileShootHeld || gpInput.shoot;
   const img = player.hitFlash > 0 ? images.hit
-            : (swordSwing > 0 ? images.sword : images.beam);
+            : (swordSwing > 0 ? images.sword
+            : ((beamActive || isShooting) ? images.beam : images.player));
   
   if (player.invincible > 0 && Math.floor(player.invincible/4) % 2) {
     ctx.globalAlpha = 0.4;
