@@ -371,6 +371,36 @@ canvas {
   color: #000;
   box-shadow: 0 0 12px rgba(255,180,80,0.6);
 }
+/* Title-screen art + text two-column layout */
+#titleBody {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 14px;
+  max-width: 92vw;
+}
+#titleArt {
+  width: clamp(140px, 22vw, 240px);
+  height: auto;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 0 14px rgba(255,150,220,0.55));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+#titleText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+@media (max-width: 700px) {
+  #titleBody { flex-direction: column; gap: 10px; }
+  #titleArt { width: clamp(120px, 38vw, 200px); }
+}
 </style>
 </head>
 <body>
@@ -405,21 +435,26 @@ canvas {
   </div>
   <div id="overlay">
     <h1>✨ MAGICAL SHOOTER ✨<br>魔法少女系戦闘Vtuber ももりの</h1>
-    <p>地球に迫る宇宙怪獣の大軍！</p>
-    <p>魔法少女系戦闘Vtuber ももりのが人類の命運を賭けて戦う！</p>
-    <div id="adminPanel">
-      <p class="adminLabel">🔧 ADMIN DEBUG MODE 🔧</p>
-      <p class="adminSub">START STAGE</p>
-      <div id="stageSelect">
-        <button class="stageBtn selected" data-stage="0">1</button>
-        <button class="stageBtn" data-stage="1">2</button>
-        <button class="stageBtn" data-stage="2">3</button>
-        <button class="stageBtn" data-stage="3">4</button>
-        <button class="stageBtn" data-stage="4">5</button>
-        <button class="stageBtn" data-stage="5">6</button>
+    <div id="titleBody">
+      <img id="titleArt" alt="ももりの">
+      <div id="titleText">
+        <p>地球に迫る宇宙怪獣の大軍！</p>
+        <p>魔法少女系戦闘Vtuber ももりのが人類の命運を賭けて戦う！</p>
+        <div id="adminPanel">
+          <p class="adminLabel">🔧 ADMIN DEBUG MODE 🔧</p>
+          <p class="adminSub">START STAGE</p>
+          <div id="stageSelect">
+            <button class="stageBtn selected" data-stage="0">1</button>
+            <button class="stageBtn" data-stage="1">2</button>
+            <button class="stageBtn" data-stage="2">3</button>
+            <button class="stageBtn" data-stage="3">4</button>
+            <button class="stageBtn" data-stage="4">5</button>
+            <button class="stageBtn" data-stage="5">6</button>
+          </div>
+        </div>
+        <button class="btn" id="startBtn">▶ GAME START</button>
       </div>
     </div>
-    <button class="btn" id="startBtn">▶ GAME START</button>
   </div>
 </div>
 <script>
@@ -3265,6 +3300,28 @@ window.addEventListener('load', () => {
       }
     };
     swordImg.src = 'sword.png';
+  }
+
+  // Title-screen art — load JPG, drop white background via flood fill,
+  // then push the resulting transparent PNG dataURL into the <img>.
+  {
+    const titleImg = new Image();
+    titleImg.onload = () => {
+      const el = document.getElementById('titleArt');
+      try {
+        const c = makeTransparent(titleImg);
+        if (el) el.src = c.toDataURL();
+        images.title = c;
+      } catch (e) {
+        console.warn('title transparency failed', e);
+        if (el) el.src = 'title.jpg';
+      }
+    };
+    titleImg.onerror = () => {
+      const el = document.getElementById('titleArt');
+      if (el) el.style.display = 'none';
+    };
+    titleImg.src = 'title.jpg';
   }
   
   initStars();
