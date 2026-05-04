@@ -201,6 +201,32 @@ canvas {
     inset 0 -2px 3px rgba(0,20,80,0.55),
     inset 0 1px 2px rgba(220,240,255,0.3);
 }
+/* SWORD — gold arcade button placed above SHOT */
+#btnSword {
+  right: 11px; bottom: 64px;
+  width: 36px; height: 36px;
+  background: linear-gradient(180deg, #fff080 0%, #e8a800 55%, #6a4500 100%);
+  box-shadow:
+    0 0 0 2px #161616,
+    0 0 0 3px #3a3a3a,
+    0 4px 0 #1a1a1a,
+    0 6px 9px rgba(0,0,0,0.55),
+    inset 0 -3px 5px rgba(80,50,0,0.5),
+    inset 0 2px 3px rgba(255,250,200,0.5);
+}
+#btnSword:active {
+  box-shadow:
+    0 0 0 2px #161616,
+    0 0 0 3px #3a3a3a,
+    0 1px 0 #1a1a1a,
+    0 3px 5px rgba(0,0,0,0.55),
+    inset 0 -2px 3px rgba(80,50,0,0.55),
+    inset 0 1px 2px rgba(255,250,200,0.4);
+}
+#btnSword.cooldown {
+  filter: grayscale(0.7) brightness(0.6);
+  cursor: not-allowed;
+}
 /* BOMB — yellow arcade button */
 #btnBomb {
   right: 64px; bottom: 14px;
@@ -371,6 +397,11 @@ canvas {
       <span class="key">[Z/SP]</span>
       <span class="label">SHOT</span>
     </div>
+    <div class="mobileBtn" id="btnSword">
+      <span class="key">[V]</span>
+      <span class="label">SWORD</span>
+      <span class="ammo" id="swordCountdown">OK</span>
+    </div>
   </div>
   <div id="overlay">
     <h1>✨ MAGICAL SHOOTER ✨<br>魔法少女系戦闘Vtuber ももりの</h1>
@@ -423,6 +454,13 @@ let guardians = [];
 let beamActive = false;
 let beamTimer = 0;
 let beamCooldown = false;
+
+// Sword attack — short-range AoE around player, 3s cooldown, unlimited uses
+const SWORD_COOLDOWN = 180; // 3 sec at 60fps
+const SWORD_DURATION = 22;  // animation frames
+const SWORD_RANGE = 140;
+let swordCooldown = 0;
+let swordSwing = 0;
 
 // Input
 let keys = {};
@@ -478,6 +516,7 @@ function pollGamepad() {
   if (bs[1] && !gpButtonsPrev[1]) fireBeam();        // B → BEAM
   if (bs[2] && !gpButtonsPrev[2]) dropBomb();        // X → BOMB
   if (bs[3] && !gpButtonsPrev[3]) toggleBGMMute();   // Y → BGM mute
+  if (bs[5] && !gpButtonsPrev[5]) fireSword();       // RB → SWORD
   if (bs[9] && !gpButtonsPrev[9]) togglePause();     // Start → PAUSE
   gpButtonsPrev = bs;
 }
@@ -656,6 +695,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'KeyZ') e.preventDefault();
   if (e.code === 'KeyX') { e.preventDefault(); dropBomb(); }
   if (e.code === 'KeyC') { e.preventDefault(); fireBeam(); }
+  if (e.code === 'KeyV') { e.preventDefault(); fireSword(); }
   if (e.code === 'KeyP' || e.code === 'Escape') { e.preventDefault(); togglePause(); }
   if (e.code === 'KeyM') { e.preventDefault(); toggleBGMMute(); }
   if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' ||
@@ -746,6 +786,7 @@ function setupMobile() {
   btnShoot.addEventListener('touchend', e => { e.preventDefault(); mobileShootHeld = false; });
   document.getElementById('btnBomb').addEventListener('touchstart', e => { e.preventDefault(); dropBomb(); });
   document.getElementById('btnBeam').addEventListener('touchstart', e => { e.preventDefault(); fireBeam(); });
+  document.getElementById('btnSword').addEventListener('touchstart', e => { e.preventDefault(); fireSword(); });
 }
 
 // ==================== WEAPONS ====================
@@ -971,6 +1012,50 @@ function fireBeam() {
   beamActive = true;
   beamTimer = 240; // 4 sec at 60fps
   player.beamMode = true;
+  playSound('beam_start');
+}
+
+function fireSword() {
+  if (gameState !== 'playing' || swordCooldown > 0) return;
+  swordCooldown = SWORD_COOLDOWN;
+  swordSwing = SWORD_DURATION;
+
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+
+  // Slash kills shielded enemies in range; normal enemies are untouched
+  for (const e of enemies) {
+    if (!e.shielded) continue;
+    const ex = e.x + e.w/2, ey = e.y + e.h/2;
+    const d = Math.sqrt((ex-cx)**2 + (ey-cy)**2);
+    if (d < SWORD_RANGE) {
+      e.hp -= 9999; // instant kill
+      addHitEffect(ex, ey, '#ffee88');
+    }
+  }
+  // Cancel any enemy bullets in range
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i];
+    const d = Math.sqrt((b.x-cx)**2 + (b.y-cy)**2);
+    if (d < SWORD_RANGE) {
+      addHitEffect(b.x, b.y, '#ffffff');
+      enemyBullets.splice(i, 1);
+    }
+  }
+  // Burst sparkle ring on swing start
+  for (let i = 0; i < 50; i++) {
+    const a = (i / 50) * Math.PI * 2;
+    const r = SWORD_RANGE * (0.55 + Math.random() * 0.45);
+    const spd = 1.5 + Math.random() * 3;
+    particles.push({
+      x: cx + Math.cos(a) * r * 0.4,
+      y: cy + Math.sin(a) * r * 0.4,
+      vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+      life: 25 + Math.random() * 25, maxLife: 50,
+      color: Math.random() < 0.55 ? '#ffffff' : '#ffee88',
+      size: 2 + Math.random() * 3,
+    });
+  }
   playSound('beam_start');
 }
 
@@ -1282,6 +1367,27 @@ function updatePlayer() {
   
   if (player.invincible > 0) player.invincible--;
   if (player.hitFlash > 0) player.hitFlash--;
+
+  // Sword cooldown + continuous sparkle emission during swing animation
+  if (swordCooldown > 0) swordCooldown--;
+  if (swordSwing > 0) {
+    swordSwing--;
+    const cx = player.x + player.w/2;
+    const cy = player.y + player.h/2;
+    for (let i = 0; i < 4; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = SWORD_RANGE * (0.5 + Math.random() * 0.5);
+      particles.push({
+        x: cx + Math.cos(a) * r,
+        y: cy + Math.sin(a) * r,
+        vx: Math.cos(a) * (1 + Math.random() * 2),
+        vy: Math.sin(a) * (1 + Math.random() * 2),
+        life: 18 + Math.random() * 18, maxLife: 36,
+        color: Math.random() < 0.5 ? '#ffffff' : '#ffee88',
+        size: 1.5 + Math.random() * 2.5,
+      });
+    }
+  }
   
   // Auto-fire (keyboard / mobile / gamepad)
   if (keys['Space'] || keys['KeyZ'] || mobileShootHeld || gpInput.shoot) {
@@ -2418,10 +2524,10 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(170,200,255,0.55)';
     ctx.font = '8px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText('[←↑↓→/WASD] MOVE  [Z/SPACE] SHOT  [X] BOMB  [C] BEAM  [P] PAUSE  [M] BGM', CANVAS_W - 6, CANVAS_H - 6);
+    ctx.fillText('[←↑↓→/WASD] MOVE  [Z/SP] SHOT  [X] BOMB  [C] BEAM  [V] SWORD  [P] PAUSE  [M] BGM', CANVAS_W - 6, CANVAS_H - 6);
     if (gpInput.connected) {
       ctx.fillStyle = 'rgba(180,255,200,0.7)';
-      ctx.fillText('🎮 PAD: STICK/D-PAD MOVE  A=SHOT  B=BEAM  X=BOMB  Y=BGM  START=PAUSE', CANVAS_W - 6, CANVAS_H - 16);
+      ctx.fillText('🎮 PAD: STICK MOVE  A=SHOT  B=BEAM  X=BOMB  Y=BGM  RB=SWORD  START=PAUSE', CANVAS_W - 6, CANVAS_H - 16);
     }
   }
 
@@ -2433,9 +2539,11 @@ function drawHUD() {
     ctx.fillText('🔧 ADMIN', CANVAS_W - 54, CANVAS_H - 6);
   }
 
-  // Sync mobile button ammo counts with game state
+  // Sync mobile button ammo counts / sword cooldown with game state
   const beamEl = document.getElementById('beamCount');
   const bombEl = document.getElementById('bombCount');
+  const swordCdEl = document.getElementById('swordCountdown');
+  const swordBtn = document.getElementById('btnSword');
   if (beamEl) {
     beamEl.textContent = stageBeam;
     beamEl.classList.toggle('empty', stageBeam <= 0);
@@ -2444,6 +2552,16 @@ function drawHUD() {
     bombEl.textContent = stageBombs;
     bombEl.classList.toggle('empty', stageBombs <= 0);
   }
+  if (swordCdEl) {
+    if (swordCooldown > 0) {
+      swordCdEl.textContent = Math.ceil(swordCooldown / 60) + 's';
+      swordCdEl.classList.add('empty');
+    } else {
+      swordCdEl.textContent = 'OK';
+      swordCdEl.classList.remove('empty');
+    }
+  }
+  if (swordBtn) swordBtn.classList.toggle('cooldown', swordCooldown > 0);
 }
 
 function showStageTitle(text) {
@@ -2530,10 +2648,62 @@ function gameLoop(currentTime) {
   drawParticles();
   drawItems();
   drawPlayer();
+  drawSword();
   drawHUD();
   if (isPaused) drawPausedOverlay();
   // Note: requestAnimationFrame is scheduled at the top of gameLoop now
   // (combined with the 60fps cap), so no rAF call here.
+}
+
+function drawSword() {
+  if (swordSwing <= 0) return;
+  const cx = player.x + player.w/2;
+  const cy = player.y + player.h/2;
+  const t = (SWORD_DURATION - swordSwing) / SWORD_DURATION; // 0..1 progress
+  const sweepAngle = t * Math.PI * 2 + Math.PI; // start swinging from behind
+  const r = SWORD_RANGE * (0.55 + t * 0.45);
+  const fade = 1 - t * 0.4;
+
+  ctx.save();
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = '#ffee88';
+
+  // Outer slash arc (golden)
+  ctx.strokeStyle = `rgba(255,230,140,${fade * 0.95})`;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, sweepAngle - Math.PI*0.45, sweepAngle + Math.PI*0.45);
+  ctx.stroke();
+
+  // Inner slash arc (white-hot core)
+  ctx.strokeStyle = `rgba(255,255,255,${fade})`;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.95, sweepAngle - Math.PI*0.35, sweepAngle + Math.PI*0.35);
+  ctx.stroke();
+
+  // Trailing radial flash (full ring at start, fades out)
+  if (t < 0.4) {
+    const ringFade = (1 - t / 0.4) * 0.6;
+    ctx.strokeStyle = `rgba(255,255,255,${ringFade})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Tip glow (lead blade point)
+  const tipX = cx + Math.cos(sweepAngle) * r;
+  const tipY = cy + Math.sin(sweepAngle) * r;
+  const grad = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 30);
+  grad.addColorStop(0, `rgba(255,255,255,${fade})`);
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function drawPausedOverlay() {
