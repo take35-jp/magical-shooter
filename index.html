@@ -582,6 +582,7 @@ function pollGamepad() {
   gpButtonsPrev = bs;
 }
 let lastShot = 0;
+let missileTick = 0;
 let bgScroll = 0;
 let stars = [];
 let frameCount = 0;
@@ -927,28 +928,33 @@ function fireShot() {
     bullets.push({ x: bx, y: by - 12, vx: 16, vy: 0, w: 24, h: 3, dmg: dmg + 1, color: '#ffff88', pierce: true });
     bullets.push({ x: bx, y: by + 12, vx: 16, vy: 0, w: 24, h: 3, dmg: dmg + 1, color: '#ffff88', pierce: true });
   }
-  // LV13+: explosive auto-targeting homing missiles (sword-range AOE on impact)
+  // LV13+: explosive auto-targeting homing missiles fired at 1/4 of shot rate.
+  // Missiles only target / damage enemies that normal bullets work on
+  // (shielded enemies are NOT valid missile targets and deflect the missile).
   // LV13: 2 missiles | LV14: 5 missiles | LV15: 8 missiles
-  const mkMissile = (vy) => ({
-    x: bx, y: by, vx: 5, vy, w: 18, h: 7,
-    dmg: dmg + 1,
-    color: '#ff6644',
-    homing: true, hSpeed: 6, turnRate: 0.07,
-    explodeOnHit: true,
-  });
   if (lv >= 13) {
-    bullets.push(mkMissile(-3));
-    bullets.push(mkMissile( 3));
-  }
-  if (lv >= 14) {
-    bullets.push(mkMissile(-8));
-    bullets.push(mkMissile( 0));
-    bullets.push(mkMissile( 8));
-  }
-  if (lv >= 15) {
-    bullets.push(mkMissile(-12));
-    bullets.push(mkMissile(-5));
-    bullets.push(mkMissile( 12));
+    missileTick++;
+    if (missileTick % 4 === 0) {
+      const mkMissile = (vy) => ({
+        x: bx, y: by, vx: 5, vy, w: 18, h: 7,
+        dmg: dmg + 1,
+        color: '#ff6644',
+        homing: true, hSpeed: 6, turnRate: 0.07,
+        explodeOnHit: true,
+      });
+      bullets.push(mkMissile(-3));
+      bullets.push(mkMissile( 3));
+      if (lv >= 14) {
+        bullets.push(mkMissile(-8));
+        bullets.push(mkMissile( 0));
+        bullets.push(mkMissile( 8));
+      }
+      if (lv >= 15) {
+        bullets.push(mkMissile(-12));
+        bullets.push(mkMissile(-5));
+        bullets.push(mkMissile( 12));
+      }
+    }
   }
 
   playSound('shoot');
@@ -1556,10 +1562,12 @@ function updateBullets() {
   // Player bullets
   for (let i = bullets.length-1; i >= 0; i--) {
     const b = bullets[i];
-    // Homing missiles: steer toward the nearest live target each frame
+    // Homing missiles: steer toward the nearest live target each frame.
+    // Skip shielded enemies — missiles only home on what normal bullets can hit.
     if (b.homing) {
       let tx = null, ty = null, bestD2 = Infinity;
       for (const e of enemies) {
+        if (e.shielded) continue;
         const ex = e.x + e.w/2, ey = e.y + e.h/2;
         const dxp = ex - b.x, dyp = ey - b.y;
         const d2 = dxp*dxp + dyp*dyp;
@@ -1782,16 +1790,18 @@ function checkCollisions(stageIdx) {
     for (let ei = enemies.length-1; ei >= 0; ei--) {
       const e = enemies[ei];
       if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
-        if (b.explodeOnHit) {
-          // LV15 missile — always detonates, AOE damages everything in range
-          addHitEffect(b.x, b.y, '#ff8844');
-          explodeMissile(b.x + b.w/2, b.y + b.h/2);
-          bullets.splice(bi, 1); consumed = true; break;
-        }
+        // Shield check first: shielded enemies deflect both normal bullets
+        // AND missiles (no detonation), keeping missiles ineffective on them.
         if (e.shielded) {
           addHitEffect(b.x, b.y, '#88ddff');
           if (!b.pierce) { bullets.splice(bi, 1); consumed = true; break; }
           continue;
+        }
+        // Explosive missiles detonate on contact with non-shielded enemies
+        if (b.explodeOnHit) {
+          addHitEffect(b.x, b.y, '#ff8844');
+          explodeMissile(b.x + b.w/2, b.y + b.h/2);
+          bullets.splice(bi, 1); consumed = true; break;
         }
         e.hp -= (b.dmg || 1);
         addHitEffect(b.x, b.y, '#ffffff');
