@@ -1934,18 +1934,22 @@ function updateItems() {
 }
 
 // ==================== SPAWN ====================
+// Boss appears after a per-stage delay: 60s, 75s, 90s, 105s, 120s, 135s.
+// A 3-second silent gap ("approach window") precedes each boss — no new
+// zako spawn during that window and existing zako are cleared so the
+// player can prep for the boss fight.
+const BOSS_APPROACH_FRAMES = 180; // 3 sec at 60fps
+
 function spawnEnemies(stageIdx) {
   const sm = STAGE_CONFIG[stageIdx];
-  const killCount = Math.floor(frameCount / 60);
-
-  if (enemies.length + (boss ? 1 : 0) >= (15 + stageIdx * 5)) return;
-  if (frameCount % sm.spawnRate !== 0) return;
-  if (bossSpawned) return;
-
-  // Boss appears after a per-stage delay (seconds): 60s, 75s, 90s, 105s, 120s, 135s
   const bossDelaySec = [60, 75, 90, 105, 120, 135][stageIdx] || 60;
   const bossAt = bossDelaySec * 60;
-  if (frameCount >= bossAt && !bossSpawned) {
+  const bossWarnAt = bossAt - BOSS_APPROACH_FRAMES;
+
+  if (bossSpawned) return;
+
+  // Boss spawn moment — runs every frame so timing is reliable
+  if (frameCount >= bossAt) {
     enemies = [];
     bossSpawned = true;
     spawnBoss(stageIdx);
@@ -1954,7 +1958,19 @@ function spawnEnemies(stageIdx) {
     startBGM(stageIdx, true);
     return;
   }
-  
+
+  // Approach window: clear stragglers once, suppress further spawns
+  if (frameCount >= bossWarnAt) {
+    if (frameCount === bossWarnAt) {
+      enemies = [];
+      showStageTitle('⚠ WARNING ⚠\n' + BOSS_CONFIG[stageIdx].name + '\n接近中…');
+    }
+    return;
+  }
+
+  // Normal zako spawn
+  if (enemies.length >= (15 + stageIdx * 5)) return;
+  if (frameCount % sm.spawnRate !== 0) return;
   const types = getEnemyTypes(stageIdx);
   const type = types[Math.floor(Math.random() * types.length)];
   const y = 40 + Math.random() * (CANVAS_H - 100);
