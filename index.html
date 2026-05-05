@@ -731,10 +731,17 @@ function initPlayer() {
 }
 
 const MAX_GUARDIANS = 5;
+let guardianPhase = 0;
+const GUARDIAN_SPEED = 0.05;
+// Each guardian is positioned by a shared rotation phase + an even angular
+// slot computed from its current array index, so they redistribute as the
+// count changes and never overlap regardless of when each was acquired.
 function addGuardian() {
   if (guardians.length >= MAX_GUARDIANS) return;
-  const i = guardians.length;
-  guardians.push({ angle: (i / MAX_GUARDIANS) * Math.PI * 2, radius: 60, speed: 0.05 });
+  guardians.push({ radius: 60 });
+}
+function guardianAngle(i, count) {
+  return guardianPhase + (i / count) * Math.PI * 2;
 }
 
 function initStage() {
@@ -960,9 +967,12 @@ function fireShot() {
   playSound('shoot');
 
   // Guardian shots — scale damage with player upgrade
-  for (let g of guardians) {
-    const gx = player.x + player.w/2 + Math.cos(g.angle) * g.radius;
-    const gy = player.y + player.h/2 + Math.sin(g.angle) * g.radius;
+  const gCount = guardians.length;
+  for (let i = 0; i < gCount; i++) {
+    const g = guardians[i];
+    const a = guardianAngle(i, gCount);
+    const gx = player.x + player.w/2 + Math.cos(a) * g.radius;
+    const gy = player.y + player.h/2 + Math.sin(a) * g.radius;
     if (beamActive) {
       bullets.push({ x: gx, y: gy, vx: 14, vy: 0, w: 30, h: 10, dmg: 30 + lv * 2, color: '#88ffff', beam: true });
     } else {
@@ -993,7 +1003,7 @@ function dropBomb() {
 
 function explodeBomb(bx, by) {
   const bombR = 800; // damage radius (2x for stronger AOE)
-  const bombDmg = 10 + player.upgradeLevel * 2; // LV0:10 .. LV15:40
+  const bombDmg = 10 + player.upgradeLevel * 5; // LV0:10 .. LV15:85
   // Firework particles - many colors, large radius
   const COUNT = 80;
   for (let i = 0; i < COUNT; i++) {
@@ -1551,10 +1561,8 @@ function updatePlayer() {
     }
   }
   
-  // Update guardians
-  for (let g of guardians) {
-    g.angle += g.speed;
-  }
+  // Update guardians (single shared phase so they stay evenly spaced)
+  if (guardians.length > 0) guardianPhase += GUARDIAN_SPEED;
 }
 
 function updateBullets() {
@@ -2521,10 +2529,13 @@ function drawPlayer() {
     ctx.restore();
   }
   
-  // Draw guardians
-  for (let g of guardians) {
-    const gx = player.x + player.w/2 + Math.cos(g.angle) * g.radius - GUARDIAN_W/2;
-    const gy = player.y + player.h/2 + Math.sin(g.angle) * g.radius - GUARDIAN_H/2;
+  // Draw guardians (positioned by shared phase so they stay evenly spaced)
+  const gCount = guardians.length;
+  for (let gi = 0; gi < gCount; gi++) {
+    const g = guardians[gi];
+    const a = guardianAngle(gi, gCount);
+    const gx = player.x + player.w/2 + Math.cos(a) * g.radius - GUARDIAN_W/2;
+    const gy = player.y + player.h/2 + Math.sin(a) * g.radius - GUARDIAN_H/2;
     if (images.guardian && images.guardian.complete) {
       ctx.drawImage(images.guardian, gx, gy, GUARDIAN_W, GUARDIAN_H);
     } else {
