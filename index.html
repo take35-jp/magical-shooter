@@ -391,6 +391,81 @@ canvas {
   font-size: clamp(11px, 1.4vw, 13px);
   text-shadow: 0 0 8px rgba(255,180,80,0.5);
 }
+/* Help (controls) popup */
+.helpBtn {
+  font-size: clamp(10px, 1.6vw, 14px) !important;
+  padding: 10px 22px !important;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #4488ff, #2255aa) !important;
+  border-color: #88bbff !important;
+  box-shadow: 0 0 16px rgba(80,140,255,0.5) !important;
+}
+#helpModal {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,20,0.85);
+  z-index: 30;
+  padding: 16px;
+  box-sizing: border-box;
+}
+#helpModal.show { display: flex; }
+.helpCard {
+  background: linear-gradient(180deg, #1a1428 0%, #0a0518 100%);
+  border: 2px solid #ff88cc;
+  box-shadow: 0 0 30px rgba(255,150,220,0.5), inset 0 0 20px rgba(255,150,220,0.15);
+  border-radius: 8px;
+  padding: 22px 28px;
+  max-width: min(640px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  color: #fff;
+}
+.helpCard h2 {
+  color: #ff88cc;
+  text-shadow: 0 0 12px #ff44aa, 0 0 24px #ff00aa;
+  text-align: center;
+  margin-bottom: 14px;
+  font-size: clamp(16px, 3vw, 22px);
+  letter-spacing: 0.1em;
+}
+.helpCard table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: clamp(9px, 1.4vw, 12px);
+  font-family: inherit;
+}
+.helpCard th, .helpCard td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  text-align: left;
+  vertical-align: middle;
+}
+.helpCard th {
+  color: #ffcc88;
+  border-bottom: 2px solid rgba(255,200,100,0.4);
+  text-shadow: 0 0 6px rgba(255,200,100,0.4);
+}
+.helpCard td:first-child {
+  color: #ff88cc;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.helpCard .helpHint {
+  margin-top: 14px;
+  font-size: clamp(8px, 1.2vw, 11px);
+  color: #aaccff;
+  line-height: 1.6;
+  text-align: center;
+}
+.helpCard .btn {
+  display: block;
+  margin: 16px auto 0;
+  padding: 10px 28px;
+  font-size: clamp(11px, 1.6vw, 14px);
+}
 /* Title-screen art + text two-column layout */
 #titleBody {
   display: flex;
@@ -477,8 +552,30 @@ canvas {
             <span id="powerValue">LV 0</span>
           </div>
         </div>
+        <button class="btn helpBtn" id="helpBtn">📖 操作方法</button>
         <button class="btn" id="startBtn">▶ GAME START</button>
       </div>
+    </div>
+  </div>
+  <!-- Controls help popup (shown over the title overlay) -->
+  <div id="helpModal" role="dialog" aria-labelledby="helpTitle">
+    <div class="helpCard">
+      <h2 id="helpTitle">操作方法</h2>
+      <table>
+        <thead><tr><th>アクション</th><th>PC</th><th>ゲームパッド</th><th>スマホ</th></tr></thead>
+        <tbody>
+          <tr><td>移動</td><td>WASD / 矢印</td><td>左スティック / 十字</td><td>左下ジョイスティック</td></tr>
+          <tr><td>ショット (連射)</td><td>Z / Space</td><td>A / RT</td><td>SHOT ボタン</td></tr>
+          <tr><td>ボム (3発/ステージ)</td><td>X</td><td>X</td><td>BOMB ボタン</td></tr>
+          <tr><td>ビーム (2発/ステージ)</td><td>C</td><td>B</td><td>BEAM ボタン</td></tr>
+          <tr><td>剣 (3秒CT・無限)</td><td>V</td><td>RB</td><td>SWORD ボタン</td></tr>
+          <tr><td>一時停止</td><td>P / Esc</td><td>START</td><td>❚❚ ボタン</td></tr>
+          <tr><td>BGM ON/OFF</td><td>M</td><td>Y</td><td>♪ ボタン</td></tr>
+        </tbody>
+      </table>
+      <p class="helpHint">★ POWER アイテム = 攻撃強化 / GUARD = ガーディアン / HEAL = ライフ回復<br>
+      ★ シールド敵(★マーク) は ビーム・ボム・剣 のみで撃破可能</p>
+      <button class="btn" id="helpCloseBtn">閉じる</button>
     </div>
   </div>
 </div>
@@ -1064,8 +1161,10 @@ function explodeMissile(bx, by) {
       size: 3 + Math.random() * 4,
     });
   }
-  // Damage all enemies in range — AOE bypasses shields
+  // Damage non-shielded enemies in range. Shielded foes shrug off missile
+  // AOE — only beam / bomb / sword can damage shielded enemies.
   for (const e of enemies) {
+    if (e.shielded) continue;
     const ex = e.x + e.w/2, ey = e.y + e.h/2;
     const d = Math.sqrt((ex-bx)**2 + (ey-by)**2);
     if (d < r) {
@@ -3539,6 +3638,23 @@ window.addEventListener('load', () => {
       sync();
     }
   }
+
+  // Help (controls) popup — open via "操作方法" button, close via Close / overlay click / Esc
+  const helpModal = document.getElementById('helpModal');
+  const helpBtn = document.getElementById('helpBtn');
+  const helpClose = document.getElementById('helpCloseBtn');
+  if (helpBtn) helpBtn.addEventListener('click', () => helpModal.classList.add('show'));
+  if (helpClose) helpClose.addEventListener('click', () => helpModal.classList.remove('show'));
+  if (helpModal) {
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) helpModal.classList.remove('show');
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && helpModal && helpModal.classList.contains('show')) {
+      helpModal.classList.remove('show');
+    }
+  });
 
   document.getElementById('startBtn').addEventListener('click', () => {
     initAudio();
