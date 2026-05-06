@@ -1097,7 +1097,7 @@ function dropBomb() {
     r: 14
   });
   // Sound: bomb launch
-  playSound('bomb_launch');
+  playSfx('bomblaunch', 0.7);
 }
 
 function explodeBomb(bx, by) {
@@ -3159,12 +3159,13 @@ let audioCtx = null;
 // ==================== MP3 SFX ====================
 // HTMLAudio-based one-shot SFX. Cloning per play allows overlapping triggers.
 const SFX_FILES = {
-  shot:    'sfx_shot.mp3',
-  power:   'sfx_power.mp3',
-  guard:   'sfx_guard.mp3',
-  sword:   'sfx_sword.mp3',
-  explode: 'sfx_explode.mp3',
-  beam:    'sfx_beam.mp3',
+  shot:       'sfx_shot.mp3',
+  power:      'sfx_power.mp3',
+  guard:      'sfx_guard.mp3',
+  sword:      'sfx_sword.mp3',
+  explode:    'sfx_explode.mp3',
+  beam:       'sfx_beam.mp3',
+  bomblaunch: 'sfx_bomblaunch.mp3',
 };
 const sfxAudio = {};
 function preloadSfx() {
