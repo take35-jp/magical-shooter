@@ -825,6 +825,8 @@ function initPlayer() {
   beamActive = false;
   beamTimer = 0;
   beamCooldown = false;
+  // Make sure no leftover beam loop is still playing from a previous run
+  if (typeof stopBeamSfx === 'function') stopBeamSfx();
 }
 
 const MAX_GUARDIANS = 5;
@@ -1061,7 +1063,7 @@ function fireShot() {
     }
   }
 
-  playSound('shoot');
+  playSfx('shot', 0.35);
 
   // Guardian shots — scale damage with player upgrade
   const gCount = guardians.length;
@@ -1142,7 +1144,7 @@ function explodeBomb(bx, by) {
     const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
     if (d < bombR + boss.w/2) boss.hp -= bombDmg;
   }
-  playSound('bomb_explode');
+  playSfx('explode', 0.8);
 }
 
 // LV15 missile impact explosion — sword-range AOE that bypasses shields.
@@ -1177,7 +1179,7 @@ function explodeMissile(bx, by) {
     const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
     if (d < r + boss.w/2) boss.hp -= dmg;
   }
-  playSound('bomb_explode');
+  playSfx('explode', 0.5);
 }
 
 function updateBombs() {
@@ -1225,7 +1227,7 @@ function fireBeam() {
   beamActive = true;
   beamTimer = 240; // 4 sec at 60fps
   player.beamMode = true;
-  playSound('beam_start');
+  startBeamSfx();
 }
 
 function fireSword() {
@@ -1290,7 +1292,7 @@ function fireSword() {
       size: 2 + Math.random() * 3,
     });
   }
-  playSound('beam_start');
+  playSfx('sword');
 }
 
 // ==================== ENEMY TYPES ====================
@@ -1657,6 +1659,7 @@ function updatePlayer() {
     if (beamTimer <= 0) {
       beamActive = false;
       player.beamMode = false;
+      stopBeamSfx();
     }
   }
   
@@ -2009,7 +2012,7 @@ function updateItems() {
         player.upgradeLevel = Math.min(MAX_UPGRADE, player.upgradeLevel + 1);
         score += 50;
         addHitEffect(it.x, it.y, '#ffff88');
-        playSound('upgrade');
+        playSfx('power');
       } else if (it.type === 'guardian') {
         // Guardian item — adds one guardian (capped)
         if (guardians.length < MAX_GUARDIANS) {
@@ -2020,7 +2023,7 @@ function updateItems() {
           score += 20;
         }
         addHitEffect(it.x, it.y, '#88ddff');
-        playSound('upgrade');
+        playSfx('guard');
       } else if (it.type === 'heal') {
         // Heal item — restores 1 life (capped); bonus score if already full
         if (player.life < MAX_LIFE) {
@@ -3151,6 +3154,49 @@ function resizeCanvas() {
 // ==================== SOUND ====================
 let audioCtx = null;
 
+// ==================== MP3 SFX ====================
+// HTMLAudio-based one-shot SFX. Cloning per play allows overlapping triggers.
+const SFX_FILES = {
+  shot:    'sfx_shot.mp3',
+  power:   'sfx_power.mp3',
+  guard:   'sfx_guard.mp3',
+  sword:   'sfx_sword.mp3',
+  explode: 'sfx_explode.mp3',
+  beam:    'sfx_beam.mp3',
+};
+const sfxAudio = {};
+function preloadSfx() {
+  for (const [k, src] of Object.entries(SFX_FILES)) {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    sfxAudio[k] = a;
+  }
+}
+function playSfx(name, volume = 0.7) {
+  const src = sfxAudio[name];
+  if (!src) return;
+  const a = src.cloneNode();
+  a.volume = volume;
+  a.play().catch(() => {});
+}
+// Beam: long sustained track that loops while the beam is active
+let beamSfxInstance = null;
+function startBeamSfx() {
+  stopBeamSfx();
+  const src = sfxAudio.beam;
+  if (!src) return;
+  beamSfxInstance = src.cloneNode();
+  beamSfxInstance.loop = true;
+  beamSfxInstance.volume = 0.55;
+  beamSfxInstance.play().catch(() => {});
+}
+function stopBeamSfx() {
+  if (beamSfxInstance) {
+    try { beamSfxInstance.pause(); } catch (e) {}
+    beamSfxInstance = null;
+  }
+}
+
 function initAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
@@ -3613,6 +3659,7 @@ window.addEventListener('load', () => {
   }
   
   initStars();
+  preloadSfx();
   setupMobile();
   
   // Admin panel: reveal stage selector + power slider when URL hash unlocks debug mode
