@@ -1086,6 +1086,10 @@ let bombs = [];
 function dropBomb() {
   if (stageBombs <= 0 || gameState !== 'playing') return;
   stageBombs--;
+  // Sound first so the pop is heard alongside (not after) the visual launch.
+  // Played at 1.5x rate (pitch-preserved where supported) so the attack
+  // transient lands a touch sooner.
+  playSfx('bomblaunch', 0.7, 0, 1.5);
   // Launch bomb projectile forward
   bombs.push({
     x: player.x + player.w,
@@ -1096,8 +1100,6 @@ function dropBomb() {
     exploded: false,
     r: 14
   });
-  // Sound: bomb launch
-  playSfx('bomblaunch', 0.7);
 }
 
 function explodeBomb(bx, by) {
