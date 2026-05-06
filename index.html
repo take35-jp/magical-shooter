@@ -1293,7 +1293,7 @@ function fireSword() {
     });
   }
   // Skip the first 0.5s of the clip so the slash lands sooner
-  playSfx('sword', 0.55, 0.5);
+  playSfx('sword', 0.9, 0.5);
 }
 
 // ==================== ENEMY TYPES ====================
@@ -2013,7 +2013,7 @@ function updateItems() {
         player.upgradeLevel = Math.min(MAX_UPGRADE, player.upgradeLevel + 1);
         score += 50;
         addHitEffect(it.x, it.y, '#ffff88');
-        playSfx('power', 0.55, 0.5);
+        playSfx('power', 0.85, 0.5);
       } else if (it.type === 'guardian') {
         // Guardian item — adds one guardian (capped)
         if (guardians.length < MAX_GUARDIANS) {
