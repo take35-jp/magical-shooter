@@ -1091,6 +1091,7 @@ function dropBomb() {
   // started yet) and play at 2x rate so the pop transient lands at the
   // exact moment dropBomb fires.
   playSfx('bomblaunch', 0.7, 0.15, 2.0);
+  playSfx('vBomb', 0.9);
   // Launch bomb projectile forward
   bombs.push({
     x: player.x + player.w,
@@ -1231,6 +1232,7 @@ function fireBeam() {
   beamTimer = 240; // 4 sec at 60fps
   player.beamMode = true;
   startBeamSfx();
+  playSfx('vBeam', 0.9);
 }
 
 function fireSword() {
@@ -1298,6 +1300,7 @@ function fireSword() {
   // Play the clip at 2x rate (pitch-preserved where supported) so the slash
   // lands ~0.5s sooner without trimming any audio content from the start.
   playSfx('sword', 0.9, 0, 2.0);
+  playSfx('vSword', 0.9);
 }
 
 // ==================== ENEMY TYPES ====================
@@ -1984,10 +1987,12 @@ function playerHit() {
   
   addHitEffect(player.x + player.w/2, player.y + player.h/2, '#ff4444');
   playSound('player_hit');
-  
+  playSfx('vHit', 0.9);
+
   if (player.life <= 0) {
     gameState = 'gameOver';
     stopBGM();
+    playSfx('vGameover', 0.9);
     showStageTitle('GAME OVER');
   }
 }
@@ -3169,6 +3174,12 @@ const SFX_FILES = {
   explode:    'sfx_explode.mp3',
   beam:       'sfx_beam.mp3',
   bomblaunch: 'sfx_bomblaunch.mp3',
+  // Character voice clips
+  vBomb:      'voice_bomb.mp3',     // くらえっ — on bomb launch
+  vBeam:      'voice_beam.mp3',     // ももりのびーーーむ — on beam fire
+  vHit:       'voice_hit.mp3',      // 痛っ — on player hit
+  vSword:     'voice_sword.mp3',    // ていっ — on sword swing
+  vGameover:  'voice_gameover.mp3', // ガメオベラ — on game over
 };
 const sfxAudio = {};
 function preloadSfx() {
