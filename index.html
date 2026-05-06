@@ -1090,8 +1090,11 @@ function dropBomb() {
   // Skip the first 0.15s of the clip (where the audible content hasn't
   // started yet) and play at 2x rate so the pop transient lands at the
   // exact moment dropBomb fires.
+  // Voice first so any browser audio latency is overlapped with the bomb's
+  // visual launch. A small currentTime skip trims the typical encoder gap /
+  // leading silence so the actual word lands on the action.
+  playSfx('vBomb', 0.9, 0.15);
   playSfx('bomblaunch', 0.7, 0.15, 2.0);
-  playSfx('vBomb', 0.9);
   // Launch bomb projectile forward
   bombs.push({
     x: player.x + player.w,
@@ -1231,8 +1234,8 @@ function fireBeam() {
   beamActive = true;
   beamTimer = 240; // 4 sec at 60fps
   player.beamMode = true;
+  playSfx('vBeam', 0.9, 0.2);
   startBeamSfx();
-  playSfx('vBeam', 0.9);
 }
 
 function fireSword() {
@@ -1299,8 +1302,8 @@ function fireSword() {
   }
   // Play the clip at 2x rate (pitch-preserved where supported) so the slash
   // lands ~0.5s sooner without trimming any audio content from the start.
+  playSfx('vSword', 0.9, 0.15);
   playSfx('sword', 0.9, 0, 2.0);
-  playSfx('vSword', 0.9);
 }
 
 // ==================== ENEMY TYPES ====================
@@ -1985,14 +1988,15 @@ function playerHit() {
   // Reset upgrades on hit
   player.upgradeLevel = Math.max(0, player.upgradeLevel - 2);
   
+  playSfx('vHit', 0.9, 0.15);
   addHitEffect(player.x + player.w/2, player.y + player.h/2, '#ff4444');
   playSound('player_hit');
-  playSfx('vHit', 0.9);
 
   if (player.life <= 0) {
     gameState = 'gameOver';
     stopBGM();
-    playSfx('vGameover', 0.9);
+    // Game-over voice intentionally lags 0.5s after death for dramatic timing
+    setTimeout(() => playSfx('vGameover', 0.9), 500);
     showStageTitle('GAME OVER');
   }
 }
@@ -3199,7 +3203,12 @@ function playSfx(name, volume = 0.7, startTime = 0, rate = 1) {
     try { a.preservesPitch = true; } catch (e) {}
   }
   if (startTime > 0) {
-    try { a.currentTime = startTime; } catch (e) {}
+    // Clamp seek so we don't fall past the end of a short clip
+    const dur = src.duration;
+    const safe = (dur && isFinite(dur))
+      ? Math.min(startTime, Math.max(0, dur - 0.05))
+      : startTime;
+    try { a.currentTime = safe; } catch (e) {}
   }
   a.play().catch(() => {});
 }
