@@ -2008,11 +2008,12 @@ function playerHit() {
   if (player.invincible > 0) return;
   
   if (guardians.length > 0) {
-    // Guardian absorbs hit
+    // Guardian absorbs hit — small-critter "kyu!" cry on its disappearance
     guardians.pop();
     player.invincible = 60;
     player.hitFlash = 60;
     addHitEffect(player.x + player.w/2, player.y + player.h/2, '#ffff00');
+    playSound('guardian_pop');
     return;
   }
   
@@ -3557,6 +3558,32 @@ function playSound(type) {
         g.gain.setValueAtTime(0.3, now);
         g.gain.exponentialRampToValueAtTime(0.001, now+0.4);
         o.start(now); o.stop(now+0.4);
+        break;
+      }
+      case 'guardian_pop': {
+        // Small-animal "kyu!" cry — rapid pitch glide with light vibrato.
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        o.type = 'triangle';
+        // Pitch sweep up then down (squeak-like)
+        o.frequency.setValueAtTime(900, now);
+        o.frequency.exponentialRampToValueAtTime(1500, now + 0.05);
+        o.frequency.exponentialRampToValueAtTime(700, now + 0.18);
+        // Light vibrato
+        lfo.type = 'sine';
+        lfo.frequency.value = 25;
+        lfoGain.gain.value = 60;
+        lfo.connect(lfoGain);
+        lfoGain.connect(o.frequency);
+        // Gain envelope
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.22, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now); lfo.start(now);
+        o.stop(now + 0.25); lfo.stop(now + 0.25);
         break;
       }
       case 'bomb_launch': {
