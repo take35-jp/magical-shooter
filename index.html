@@ -1063,7 +1063,7 @@ function fireShot() {
     }
   }
 
-  playSfx('shot', 0.35);
+  playSfx('shot', 0.25);
 
   // Guardian shots — scale damage with player upgrade
   const gCount = guardians.length;
@@ -1144,7 +1144,7 @@ function explodeBomb(bx, by) {
     const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
     if (d < bombR + boss.w/2) boss.hp -= bombDmg;
   }
-  playSfx('explode', 0.8);
+  playSfx('explode', 0.65);
 }
 
 // LV15 missile impact explosion — sword-range AOE that bypasses shields.
@@ -1179,7 +1179,7 @@ function explodeMissile(bx, by) {
     const d = Math.sqrt((bxc-bx)**2 + (byc-by)**2);
     if (d < r + boss.w/2) boss.hp -= dmg;
   }
-  playSfx('explode', 0.5);
+  playSfx('explode', 0.4);
 }
 
 function updateBombs() {
@@ -1292,7 +1292,8 @@ function fireSword() {
       size: 2 + Math.random() * 3,
     });
   }
-  playSfx('sword');
+  // Skip the first 0.5s of the clip so the slash lands sooner
+  playSfx('sword', 0.55, 0.5);
 }
 
 // ==================== ENEMY TYPES ====================
@@ -2012,7 +2013,7 @@ function updateItems() {
         player.upgradeLevel = Math.min(MAX_UPGRADE, player.upgradeLevel + 1);
         score += 50;
         addHitEffect(it.x, it.y, '#ffff88');
-        playSfx('power');
+        playSfx('power', 0.55, 0.5);
       } else if (it.type === 'guardian') {
         // Guardian item — adds one guardian (capped)
         if (guardians.length < MAX_GUARDIANS) {
@@ -2023,7 +2024,7 @@ function updateItems() {
           score += 20;
         }
         addHitEffect(it.x, it.y, '#88ddff');
-        playSfx('guard');
+        playSfx('guard', 0.55, 0.5);
       } else if (it.type === 'heal') {
         // Heal item — restores 1 life (capped); bonus score if already full
         if (player.life < MAX_LIFE) {
@@ -3172,11 +3173,14 @@ function preloadSfx() {
     sfxAudio[k] = a;
   }
 }
-function playSfx(name, volume = 0.7) {
+function playSfx(name, volume = 0.7, startTime = 0) {
   const src = sfxAudio[name];
   if (!src) return;
   const a = src.cloneNode();
   a.volume = volume;
+  if (startTime > 0) {
+    try { a.currentTime = startTime; } catch (e) {}
+  }
   a.play().catch(() => {});
 }
 // Beam: long sustained track that loops while the beam is active
@@ -3187,7 +3191,7 @@ function startBeamSfx() {
   if (!src) return;
   beamSfxInstance = src.cloneNode();
   beamSfxInstance.loop = true;
-  beamSfxInstance.volume = 0.55;
+  beamSfxInstance.volume = 0.4;
   beamSfxInstance.play().catch(() => {});
 }
 function stopBeamSfx() {
