@@ -1237,7 +1237,9 @@ function fireBeam() {
   beamCharging = true;
   beamChargeTimer = BEAM_CHARGE_FRAMES;
   player.beamMode = true;
-  // Charge SFX during the wind-up; vBeam voice + beam loop fire at the end
+  // Voice + charge SFX both start at wind-up; the beam loop kicks in once
+  // the charge completes.
+  playSfx('vBeam', 0.9);
   playSfx('beamcharge', 0.7);
 }
 
@@ -1668,7 +1670,7 @@ function updatePlayer() {
       beamCharging = false;
       beamActive = true;
       beamTimer = 240; // 4 sec at 60fps
-      playSfx('vBeam', 0.9);
+      // Voice already started at charge-time; just kick the beam loop in.
       startBeamSfx();
     }
   }
