@@ -1292,8 +1292,9 @@ function fireSword() {
       size: 2 + Math.random() * 3,
     });
   }
-  // Skip the first 0.5s of the clip so the slash lands sooner
-  playSfx('sword', 0.9, 0.5);
+  // Play the clip at 2x rate (pitch-preserved where supported) so the slash
+  // lands ~0.5s sooner without trimming any audio content from the start.
+  playSfx('sword', 0.9, 0, 2.0);
 }
 
 // ==================== ENEMY TYPES ====================
@@ -3173,11 +3174,15 @@ function preloadSfx() {
     sfxAudio[k] = a;
   }
 }
-function playSfx(name, volume = 0.7, startTime = 0) {
+function playSfx(name, volume = 0.7, startTime = 0, rate = 1) {
   const src = sfxAudio[name];
   if (!src) return;
   const a = src.cloneNode();
   a.volume = volume;
+  if (rate !== 1) {
+    a.playbackRate = rate;
+    try { a.preservesPitch = true; } catch (e) {}
+  }
   if (startTime > 0) {
     try { a.currentTime = startTime; } catch (e) {}
   }
