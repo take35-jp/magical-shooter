@@ -1090,10 +1090,8 @@ function dropBomb() {
   // Skip the first 0.15s of the clip (where the audible content hasn't
   // started yet) and play at 2x rate so the pop transient lands at the
   // exact moment dropBomb fires.
-  // Voice first so any browser audio latency is overlapped with the bomb's
-  // visual launch. A small currentTime skip trims the typical encoder gap /
-  // leading silence so the actual word lands on the action.
-  playSfx('vBomb', 0.9, 0.15);
+  // Voice first — Web Audio plays with sample-accurate latency so no skip needed
+  playSfx('vBomb', 0.9);
   playSfx('bomblaunch', 0.7, 0.15, 2.0);
   // Launch bomb projectile forward
   bombs.push({
@@ -1234,7 +1232,7 @@ function fireBeam() {
   beamActive = true;
   beamTimer = 240; // 4 sec at 60fps
   player.beamMode = true;
-  playSfx('vBeam', 0.9, 0.2);
+  playSfx('vBeam', 0.9);
   startBeamSfx();
 }
 
@@ -1302,7 +1300,7 @@ function fireSword() {
   }
   // Play the clip at 2x rate (pitch-preserved where supported) so the slash
   // lands ~0.5s sooner without trimming any audio content from the start.
-  playSfx('vSword', 0.9, 0.15);
+  playSfx('vSword', 0.9);
   playSfx('sword', 0.9, 0, 2.0);
 }
 
@@ -1988,7 +1986,7 @@ function playerHit() {
   // Reset upgrades on hit
   player.upgradeLevel = Math.max(0, player.upgradeLevel - 2);
   
-  playSfx('vHit', 0.9, 0.15);
+  playSfx('vHit', 0.9);
   addHitEffect(player.x + player.w/2, player.y + player.h/2, '#ff4444');
   playSound('player_hit');
 
@@ -3185,7 +3183,8 @@ const SFX_FILES = {
   vSword:     'voice_sword.mp3',    // ていっ — on sword swing
   vGameover:  'voice_gameover.mp3', // ガメオベラ — on game over
 };
-const sfxAudio = {};
+const sfxAudio = {};         // HTMLAudio fallback
+const sfxBuffers = {};       // Web Audio buffers (preferred — ~10ms latency vs 100-300ms)
 function preloadSfx() {
   for (const [k, src] of Object.entries(SFX_FILES)) {
     const a = new Audio(src);
@@ -3193,7 +3192,35 @@ function preloadSfx() {
     sfxAudio[k] = a;
   }
 }
+function loadSfxBuffers() {
+  if (!audioCtx) return;
+  for (const [k, src] of Object.entries(SFX_FILES)) {
+    if (sfxBuffers[k]) continue;
+    fetch(src)
+      .then(r => r.arrayBuffer())
+      .then(buf => audioCtx.decodeAudioData(buf))
+      .then(audioBuf => { sfxBuffers[k] = audioBuf; })
+      .catch(e => console.warn('decode failed', k, e));
+  }
+}
 function playSfx(name, volume = 0.7, startTime = 0, rate = 1) {
+  // Preferred: Web Audio (much lower latency than HTMLAudio's ~100-300ms)
+  if (audioCtx && sfxBuffers[name]) {
+    try {
+      const buf = sfxBuffers[name];
+      const source = audioCtx.createBufferSource();
+      source.buffer = buf;
+      source.playbackRate.value = rate;
+      const gain = audioCtx.createGain();
+      gain.gain.value = volume;
+      source.connect(gain);
+      gain.connect(audioCtx.destination);
+      const offset = Math.min(startTime, Math.max(0, buf.duration - 0.02));
+      source.start(0, offset);
+      return;
+    } catch (e) {}
+  }
+  // Fallback: HTMLAudio (cloneNode for overlap)
   const src = sfxAudio[name];
   if (!src) return;
   const a = src.cloneNode();
@@ -3203,7 +3230,6 @@ function playSfx(name, volume = 0.7, startTime = 0, rate = 1) {
     try { a.preservesPitch = true; } catch (e) {}
   }
   if (startTime > 0) {
-    // Clamp seek so we don't fall past the end of a short clip
     const dur = src.duration;
     const safe = (dur && isFinite(dur))
       ? Math.min(startTime, Math.max(0, dur - 0.05))
@@ -3213,9 +3239,24 @@ function playSfx(name, volume = 0.7, startTime = 0, rate = 1) {
   a.play().catch(() => {});
 }
 // Beam: long sustained track that loops while the beam is active
-let beamSfxInstance = null;
+let beamSfxInstance = null;       // HTMLAudio fallback
+let beamSfxSource = null;         // Web Audio source
+let beamSfxGain = null;
 function startBeamSfx() {
   stopBeamSfx();
+  if (audioCtx && sfxBuffers.beam) {
+    try {
+      beamSfxSource = audioCtx.createBufferSource();
+      beamSfxSource.buffer = sfxBuffers.beam;
+      beamSfxSource.loop = true;
+      beamSfxGain = audioCtx.createGain();
+      beamSfxGain.gain.value = 0.4;
+      beamSfxSource.connect(beamSfxGain);
+      beamSfxGain.connect(audioCtx.destination);
+      beamSfxSource.start(0);
+      return;
+    } catch (e) {}
+  }
   const src = sfxAudio.beam;
   if (!src) return;
   beamSfxInstance = src.cloneNode();
@@ -3224,6 +3265,11 @@ function startBeamSfx() {
   beamSfxInstance.play().catch(() => {});
 }
 function stopBeamSfx() {
+  if (beamSfxSource) {
+    try { beamSfxSource.stop(); } catch (e) {}
+    beamSfxSource = null;
+    beamSfxGain = null;
+  }
   if (beamSfxInstance) {
     try { beamSfxInstance.pause(); } catch (e) {}
     beamSfxInstance = null;
@@ -3232,6 +3278,7 @@ function stopBeamSfx() {
 
 function initAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  loadSfxBuffers();
 }
 
 // ==================== BGM (procedural) ====================
