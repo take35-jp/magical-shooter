@@ -7,13 +7,17 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* dynamic viewport height — excludes URL bar on mobile */
   background: #000;
   overflow: hidden;
   font-family: 'Press Start 2P', 'Courier New', monospace;
 }
 #gameContainer {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: flex; align-items: center; justify-content: center;
   position: relative;
 }
@@ -69,7 +73,9 @@ canvas {
 }
 /* Mobile joystick */
 #joystickArea {
-  position: absolute; bottom: 20px; left: 20px;
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(20px, env(safe-area-inset-left));
   width: 120px; height: 120px;
   display: none;
   z-index: 20;
@@ -92,7 +98,9 @@ canvas {
   box-shadow: 0 0 10px rgba(255,136,204,0.5);
 }
 #mobileButtons {
-  position: absolute; bottom: 20px; right: 20px;
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  right: max(20px, env(safe-area-inset-right));
   width: 110px; height: 110px;
   display: none;
   z-index: 20;
@@ -252,7 +260,8 @@ canvas {
 /* PAUSE — neutral arcade button beside joystick */
 #pauseBtn {
   position: absolute;
-  bottom: 65px; left: 160px;
+  bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  left: calc(160px + env(safe-area-inset-left, 0px));
   width: 50px; height: 50px;
   border-radius: 50%;
   display: none;
@@ -305,7 +314,8 @@ canvas {
 /* BGM mute toggle — small floating button at top-right */
 #bgmBtn {
   position: absolute;
-  top: 12px; right: 12px;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
   width: 34px; height: 34px;
   border-radius: 50%;
   display: flex;
@@ -1429,6 +1439,16 @@ function updateBoss(stageIdx) {
     bossDefeated = true;
     stageClearTimer = 120;
     gameState = 'stageClear';
+    // updatePlayer early-returns when state isn't 'playing', so the beam
+    // loop would otherwise keep playing forever — clean it up explicitly.
+    if (beamActive || beamCharging) {
+      beamActive = false;
+      beamCharging = false;
+      beamTimer = 0;
+      beamChargeTimer = 0;
+      player.beamMode = false;
+      stopBeamSfx();
+    }
     showStageTitle(stage < 6 ? `STAGE ${stage} CLEAR!` : '🌟 GAME CLEAR! 🌟');
     playSound('stage_clear');
   }
