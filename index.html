@@ -665,6 +665,8 @@ let highScore = 0;
 // Player state
 let player = {};
 let bullets = [];
+const MAX_BULLETS = 400;     // hard cap to keep LV15 spam from chugging
+const MAX_PARTICLES = 600;   // cap visual particles for the same reason
 let enemyBullets = [];
 let enemies = [];
 let particles = [];
@@ -1033,6 +1035,9 @@ function fireShot() {
   const now = Date.now();
   if (now - lastShot < 100) return;
   lastShot = now;
+  // Skip the spawn entirely when the bullet pool is already saturated —
+  // prevents LV15 spam from accumulating an arbitrarily large array.
+  if (bullets.length >= MAX_BULLETS) return;
 
   const bx = player.x + player.w/2;
   const by = player.y + player.h/2;
@@ -1817,8 +1822,8 @@ function updateBullets() {
         b.vx = b.vx * (1 - tr) + tvx * tr;
         b.vy = b.vy * (1 - tr) + tvy * tr;
       }
-      // Engine trail puffs
-      if (Math.random() < 0.55) {
+      // Engine trail puffs — emit less often and only when there's room
+      if (particles.length < MAX_PARTICLES && Math.random() < 0.3) {
         particles.push({
           x: b.x + b.w/2, y: b.y + b.h/2,
           vx: -b.vx * 0.2 + (Math.random()-0.5),
@@ -2111,7 +2116,11 @@ function playerHit() {
 }
 
 function addHitEffect(x, y, color) {
-  for (let i = 0; i < 8; i++) {
+  // Bail out if particle pool is already saturated; halve the count when full.
+  if (particles.length >= MAX_PARTICLES) return;
+  const count = particles.length > MAX_PARTICLES * 0.7 ? 4 : 8;
+  for (let i = 0; i < count; i++) {
+    if (particles.length >= MAX_PARTICLES) return;
     const a = Math.random() * Math.PI * 2;
     const spd = 1 + Math.random() * 3;
     particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, life: 20+Math.random()*20, maxLife: 40, color, size: 2+Math.random()*4 });
