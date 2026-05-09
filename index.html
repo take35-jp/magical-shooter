@@ -72,6 +72,19 @@ canvas {
   margin-bottom: 14px;
   image-rendering: -webkit-optimize-contrast;
 }
+.gameoverTitle {
+  font-size: clamp(20px, 4.5vw, 40px);
+  color: #ff6688;
+  text-shadow: 0 0 18px #ff2244, 0 0 36px #aa0033;
+  margin-bottom: 10px;
+}
+.gameoverHero {
+  width: clamp(180px, 30vw, 320px);
+  height: auto;
+  filter: drop-shadow(0 0 22px rgba(255,80,120,0.5));
+  margin-bottom: 12px;
+  image-rendering: -webkit-optimize-contrast;
+}
 .gameclearBtns {
   display: flex;
   flex-direction: row;
@@ -678,6 +691,7 @@ let mobileShootHeld = false;
 let isMobileDevice = false;
 let isPaused = false;
 let gameclearDataUrl = '';
+let gameoverDataUrl = '';
 
 // Admin debug mode — gated by URL hash. Use #admin=Take35@pla to unlock.
 // NOTE: this is a static HTML file; the password is visible in source.
@@ -3264,11 +3278,16 @@ function showOverlay(type) {
   ov.style.display = 'flex';
   
   if (type === 'gameOver') {
+    const heroSrc = gameoverDataUrl || 'Pic/gameover.jpg';
     ov.innerHTML = `
-      <h1>💀 GAME OVER 💀</h1>
+      <h1 class="gameoverTitle">💀 GAME OVER 💀</h1>
+      <img class="gameoverHero" src="${heroSrc}" alt="">
       <p>SCORE: ${score.toString().padStart(8,'0')}</p>
       <p>BEST: ${highScore.toString().padStart(8,'0')}</p>
-      <button class="btn" onclick="restartGame()">▶ RETRY</button>
+      <div class="gameclearBtns">
+        <button class="btn" onclick="location.reload()">↩ タイトルに戻る</button>
+        <button class="btn" onclick="restartGame()">▶ RETRY</button>
+      </div>
     `;
   } else if (type === 'gameClear') {
     const heroSrc = gameclearDataUrl || 'Pic/gameclear.jpg';
@@ -4129,6 +4148,22 @@ window.addEventListener('load', () => {
     };
     gcImg.onerror = () => { gameclearDataUrl = ''; };
     gcImg.src = 'Pic/gameclear.jpg';
+  }
+  // Game-over hero image — Pic/gameover.jpg
+  {
+    const goImg = new Image();
+    goImg.onload = () => {
+      try {
+        const c = makeTransparentDesat(goImg);
+        eradicateHalo(c, 3, 205, 35);
+        gameoverDataUrl = c.toDataURL();
+      } catch (e) {
+        console.warn('gameover transparency failed', e);
+        gameoverDataUrl = 'Pic/gameover.jpg';
+      }
+    };
+    goImg.onerror = () => { gameoverDataUrl = ''; };
+    goImg.src = 'Pic/gameover.jpg';
   }
   
   initStars();
