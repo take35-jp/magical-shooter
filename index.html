@@ -2390,22 +2390,33 @@ function drawEnemy(e) {
       ctx.translate(cx, cy);
       ctx.rotate(Math.atan2(e.kVy || 0, e.kVx || -1));
       ctx.drawImage(sprite, -dw/2, -dh/2, dw, dh);
-      // Shield ring overlay (kamikaze is also shielded — only beam/bomb/sword
-      // can damage it). Drawn in local coords since the transform is rotated.
+      // Forward pinpoint barrier — a 90° arc on the kamikaze's leading edge
+      // instead of a full ring. Drawn in local coords (front = +X after rotate).
+      const kr = Math.max(dw, dh) / 2 + 6;
+      const halfArc = Math.PI / 4; // 45° each side of front
+      const pulse = 0.85 + Math.sin(frameCount * 0.18) * 0.15;
       ctx.shadowBlur = 18;
       ctx.shadowColor = '#aaccff';
+      // Outer rim
       ctx.strokeStyle = '#ddeeff';
-      ctx.lineWidth = 3;
-      const kr = Math.max(dw, dh) / 2 + 3;
+      ctx.lineWidth = 4 * pulse;
       ctx.beginPath();
-      ctx.arc(0, 0, kr, 0, Math.PI*2);
+      ctx.arc(0, 0, kr, -halfArc, halfArc);
       ctx.stroke();
+      // Inner brighter rim
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
-      for (let j = 0; j < 4; j++) {
-        const a = e.angle * 2 + j * Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(0, 0, kr - 4, -halfArc * 0.9, halfArc * 0.9);
+      ctx.stroke();
+      // Three "energy cell" segments inside the cone for the hex-shield look
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(200,230,255,0.6)';
+      for (let j = -1; j <= 1; j++) {
+        const a = j * (halfArc * 0.55);
+        const segLen = 0.12;
         ctx.beginPath();
-        ctx.arc(0, 0, kr, a, a + 0.3);
+        ctx.arc(0, 0, kr - 9, a - segLen/2, a + segLen/2);
         ctx.stroke();
       }
     } else {
