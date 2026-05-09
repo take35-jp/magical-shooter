@@ -1370,7 +1370,7 @@ function fireSword() {
     const kdist = Math.sqrt(kdx*kdx + kdy*kdy) || 1;
     const ux = kdx / kdist, uy = kdy / kdist;
     if (e.shielded) {
-      e.hp -= 12; // sword can damage shielded enemies
+      e.hp -= 36; // sword can damage shielded enemies (3× the previous 12)
       addHitEffect(ex, ey, '#ffee88');
     } else {
       addHitEffect(ex, ey, '#aaccdd');
@@ -1468,7 +1468,20 @@ function getEnemyTypes(stageIdx) {
     ['eye', 'dart', 'spinner', 'sniper', 'shielded', 'giant'],                                     // S3 +shielded +giant
     ['spinner', 'tank', 'jellyfish', 'sniper', 'shielded', 'giant', 'kamikaze', 'kamikaze'],       // S4 +kamikaze
     ['tank', 'jellyfish', 'crystal', 'spinner', 'sniper', 'shielded', 'giant', 'kamikaze'],        // S5
-    ['tank', 'jellyfish', 'crystal', 'eye', 'dart', 'spinner', 'sniper', 'shielded', 'giant', 'kamikaze'], // S6
+    // S6 — shielded/giant cut to 2/3 of base spawn weight, surplus pushed
+    // into other non-kamikaze types so the final stage stays varied.
+    [
+      'tank', 'tank', 'tank',
+      'jellyfish', 'jellyfish', 'jellyfish',
+      'crystal', 'crystal', 'crystal',
+      'eye', 'eye', 'eye', 'eye',
+      'dart', 'dart', 'dart', 'dart',
+      'spinner', 'spinner', 'spinner',
+      'sniper', 'sniper', 'sniper',
+      'shielded', 'shielded',
+      'giant', 'giant',
+      'kamikaze', 'kamikaze', 'kamikaze',
+    ],
   ];
   return pools[stageIdx] || pools[0];
 }
