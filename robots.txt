@@ -100,6 +100,6 @@ Disallow: /
 User-agent: Scrapy
 Disallow: /
 
-# Standard search engines may continue to index the game pages
+# Block ALL crawlers — this site should not appear in any web search
 User-agent: *
-Allow: /
+Disallow: /
