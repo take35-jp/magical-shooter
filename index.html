@@ -3879,6 +3879,46 @@ window.addEventListener('load', () => {
     return c;
   }
 
+  // Variant for images on a dark/black background — flood-fill from edges,
+  // any near-black pixel (max channel below darkThresh) becomes transparent.
+  function makeTransparentDark(img, darkThresh = 80) {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0);
+    const data = cx.getImageData(0, 0, w, h);
+    const px = data.data;
+    const visited = new Uint8Array(w * h);
+    const isBg = i4 => {
+      if (px[i4 + 3] === 0) return false;
+      const r = px[i4], g = px[i4 + 1], b = px[i4 + 2];
+      const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+      return max < darkThresh;
+    };
+    const stack = [];
+    const push = (x, y) => {
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const idx = y * w + x;
+      if (visited[idx]) return;
+      if (!isBg(idx * 4)) return;
+      visited[idx] = 1;
+      stack.push(x, y);
+    };
+    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+    while (stack.length) {
+      const y = stack.pop(), x = stack.pop();
+      px[(y * w + x) * 4 + 3] = 0;
+      push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+    }
+    cx.putImageData(data, 0, 0);
+    c.complete = true;
+    c.naturalWidth = w;
+    c.naturalHeight = h;
+    return c;
+  }
+
   // Variant for JPGs that bake the Photoshop transparency-checkerboard
   // (alternating white & light-gray squares) into the image. Detects ANY
   // low-saturation light pixel as background, including ~204,204,204 grays.
@@ -3994,13 +4034,15 @@ window.addEventListener('load', () => {
     swordImg.src = 'sword.png';
   }
 
-  // Title screen art (character) — Pic/Title_momorino.jpg with desat flood fill
+  // Title screen art (character) — Pic/Title_momorino.jpg with desat flood fill.
+  // Looser thresholds so the soft white/pink halo around the character is also
+  // caught while saturated hair/skin pixels survive.
   {
     const titleImg = new Image();
     titleImg.onload = () => {
       const el = document.getElementById('titleArt');
       try {
-        const c = makeTransparentDesat(titleImg);
+        const c = makeTransparentDesat(titleImg, 155, 60);
         if (el) el.src = c.toDataURL();
         images.title = c;
       } catch (e) {
@@ -4014,13 +4056,14 @@ window.addEventListener('load', () => {
     };
     titleImg.src = 'Pic/Title_momorino.jpg';
   }
-  // Title heading text image — Pic/Title.jpg with desat flood fill
+  // Title heading text image — Pic/Title.jpg has a black background, so use
+  // the dark-background flood fill to drop it without touching the bright text.
   {
     const tImg = new Image();
     tImg.onload = () => {
       const el = document.getElementById('titleHeading');
       try {
-        const c = makeTransparentDesat(tImg);
+        const c = makeTransparentDark(tImg, 90);
         if (el) el.src = c.toDataURL();
       } catch (e) {
         console.warn('title heading transparency failed', e);
