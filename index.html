@@ -153,7 +153,7 @@ canvas {
   position: absolute;
   bottom: max(60px, calc(40px + env(safe-area-inset-bottom)));
   right: max(20px, env(safe-area-inset-right));
-  width: 110px; height: 110px;
+  width: 130px; height: 110px;
   display: none;
   z-index: 20;
 }
@@ -213,7 +213,7 @@ canvas {
 .mobileBtn:active {
   transform: translateY(2px);
 }
-/* SHOT — red arcade button */
+/* SHOT — red arcade button (bottom-right of the cluster) */
 #btnShoot {
   right: 0; bottom: 0;
   width: 58px; height: 58px;
@@ -239,9 +239,9 @@ canvas {
   font-size: 11px;
   margin-top: 1px;
 }
-/* BEAM — blue arcade button */
+/* BEAM — blue arcade button (top-right of the cluster, above SHOT) */
 #btnBeam {
-  right: 64px; bottom: 58px;
+  right: 11px; bottom: 64px;
   width: 36px; height: 36px;
   background: linear-gradient(180deg, #6cc4ff 0%, #2474e0 55%, #0a3590 100%);
   box-shadow:
@@ -261,35 +261,39 @@ canvas {
     inset 0 -2px 3px rgba(0,20,80,0.55),
     inset 0 1px 2px rgba(220,240,255,0.3);
 }
-/* SWORD — gold arcade button placed above SHOT */
+/* SWORD — gold arcade button (same size as SHOT, sits to its left) */
 #btnSword {
-  right: 11px; bottom: 64px;
-  width: 36px; height: 36px;
+  right: 64px; bottom: 0;
+  width: 58px; height: 58px;
   background: linear-gradient(180deg, #fff080 0%, #e8a800 55%, #6a4500 100%);
   box-shadow:
-    0 0 0 2px #161616,
-    0 0 0 3px #3a3a3a,
-    0 4px 0 #1a1a1a,
-    0 6px 9px rgba(0,0,0,0.55),
+    0 0 0 3px #161616,
+    0 0 0 4px #3a3a3a,
+    0 5px 0 #1a1a1a,
+    0 7px 10px rgba(0,0,0,0.55),
     inset 0 -3px 5px rgba(80,50,0,0.5),
     inset 0 2px 3px rgba(255,250,200,0.5);
 }
 #btnSword:active {
   box-shadow:
-    0 0 0 2px #161616,
-    0 0 0 3px #3a3a3a,
+    0 0 0 3px #161616,
+    0 0 0 4px #3a3a3a,
     0 1px 0 #1a1a1a,
-    0 3px 5px rgba(0,0,0,0.55),
+    0 3px 6px rgba(0,0,0,0.55),
     inset 0 -2px 3px rgba(80,50,0,0.55),
     inset 0 1px 2px rgba(255,250,200,0.4);
+}
+#btnSword .label {
+  font-size: 11px;
+  margin-top: 1px;
 }
 #btnSword.cooldown {
   filter: grayscale(0.7) brightness(0.6);
   cursor: not-allowed;
 }
-/* BOMB — yellow arcade button */
+/* BOMB — yellow arcade button (top-left of the cluster, above SWORD) */
 #btnBomb {
-  right: 64px; bottom: 14px;
+  right: 75px; bottom: 64px;
   width: 36px; height: 36px;
   background: linear-gradient(180deg, #ffdd66 0%, #f0a014 55%, #8a4f00 100%);
   box-shadow:
@@ -3487,9 +3491,17 @@ function restartGame() {
 
 // ==================== RESIZE ====================
 function resizeCanvas() {
+  // Prefer visualViewport when available — it reports the actually-visible
+  // height on mobile (URL bar / on-screen keyboard / safe areas excluded),
+  // which dvh / clientHeight don't always match in landscape.
   const container = document.getElementById('gameContainer');
-  const cw = container.clientWidth, ch = container.clientHeight;
-  const scale = Math.min(cw / CANVAS_W, ch / CANVAS_H);
+  const vw = (window.visualViewport && window.visualViewport.width) || window.innerWidth || container.clientWidth;
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight || container.clientHeight;
+  // Tiny safety margin so the canvas never butts against the very edge
+  const margin = 4;
+  const availW = Math.max(1, vw - margin * 2);
+  const availH = Math.max(1, vh - margin * 2);
+  const scale = Math.min(availW / CANVAS_W, availH / CANVAS_H);
   canvas.style.width = (CANVAS_W * scale) + 'px';
   canvas.style.height = (CANVAS_H * scale) + 'px';
 }
@@ -4026,6 +4038,11 @@ window.addEventListener('load', () => {
   
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', resizeCanvas);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resizeCanvas);
+    window.visualViewport.addEventListener('scroll', resizeCanvas);
+  }
   
   // White-background remover: flood fill from edges, only edge-connected
   // near-white pixels become transparent. Interior white highlights survive.
