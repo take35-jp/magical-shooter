@@ -704,7 +704,7 @@ const BEAM_CHARGE_FRAMES = 60; // 1 second wind-up before the beam actually fire
 
 // Sword attack — short-range AoE around player, 3s cooldown, unlimited uses
 const SWORD_COOLDOWN = 120; // 2 sec at 60fps
-const SWORD_DURATION = 22;  // animation frames
+const SWORD_DURATION = 26;  // animation frames (~0.43s) — also gates the bullet-deflect window
 const SWORD_RANGE = 154;
 let swordCooldown = 0;
 let swordSwing = 0;
@@ -1746,7 +1746,7 @@ function updatePlayer() {
   if (player.invincible > 0) player.invincible--;
   if (player.hitFlash > 0) player.hitFlash--;
 
-  // Sword cooldown + continuous sparkle emission during swing animation
+  // Sword cooldown + continuous sparkle emission + per-frame bullet deflect
   if (swordCooldown > 0) swordCooldown--;
   if (swordSwing > 0) {
     swordSwing--;
@@ -1764,6 +1764,24 @@ function updatePlayer() {
         color: Math.random() < 0.5 ? '#ffffff' : '#ffee88',
         size: 1.5 + Math.random() * 2.5,
       });
+    }
+    // Continuous bullet deflect — any enemy bullet entering the sword
+    // disc during the swing is repelled, so the effective parry window
+    // matches the swing animation length (now 26 frames ≈ 0.43s).
+    for (const b of enemyBullets) {
+      if (b.deflected) continue;
+      const bcx = b.x + (b.w || 0) / 2;
+      const bcy = b.y + (b.h || 0) / 2;
+      const dx = bcx - cx, dy = bcy - cy;
+      const d2 = dx*dx + dy*dy;
+      if (d2 >= SWORD_RANGE * SWORD_RANGE) continue;
+      addHitEffect(bcx, bcy, '#ffee88');
+      const speed = Math.max(8, Math.sqrt(b.vx*b.vx + b.vy*b.vy));
+      const dist = Math.sqrt(d2) || 1;
+      b.vx = (dx / dist) * speed;
+      b.vy = (dy / dist) * speed;
+      b.behavior = null;
+      b.deflected = true;
     }
   }
   
