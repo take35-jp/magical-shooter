@@ -578,7 +578,7 @@ canvas {
     <div class="mobileBtn" id="btnBomb">
       <span class="key">[X]</span>
       <span class="label">BOMB</span>
-      <span class="ammo" id="bombCount">3</span>
+      <span class="ammo" id="bombCount">4</span>
     </div>
     <div class="mobileBtn" id="btnShoot">
       <span class="key">[Z/SP]</span>
@@ -665,6 +665,7 @@ let highScore = 0;
 // Player state
 let player = {};
 let bullets = [];
+let shockwaves = [];          // expanding-ring damage-range visualizers
 const MAX_BULLETS = 400;     // hard cap to keep LV15 spam from chugging
 const MAX_PARTICLES = 600;   // cap visual particles for the same reason
 let enemyBullets = [];
@@ -680,7 +681,7 @@ let beamChargeTimer = 0;
 const BEAM_CHARGE_FRAMES = 60; // 1 second wind-up before the beam actually fires
 
 // Sword attack — short-range AoE around player, 3s cooldown, unlimited uses
-const SWORD_COOLDOWN = 180; // 3 sec at 60fps
+const SWORD_COOLDOWN = 120; // 2 sec at 60fps
 const SWORD_DURATION = 22;  // animation frames
 const SWORD_RANGE = 154;
 let swordCooldown = 0;
@@ -754,7 +755,7 @@ let stars = [];
 let frameCount = 0;
 let bossSpawned = false;
 let boss = null;
-let stageBombs = 3;
+let stageBombs = 4;
 let stageBeam = 2;
 let stageClearTimer = 0;
 let bossDefeated = false;
@@ -889,7 +890,7 @@ function initPlayer() {
     beamMode: false,
   };
   guardians = [];
-  stageBombs = 3;
+  stageBombs = 4;
   stageBeam = 2;
   beamActive = false;
   beamTimer = 0;
@@ -921,6 +922,7 @@ function initStage() {
   bombs = [];
   items = [];
   particles = [];
+  shockwaves = [];
   bossSpawned = false;
   boss = null;
   bossDefeated = false;
@@ -1181,7 +1183,16 @@ function dropBomb() {
 
 function explodeBomb(bx, by) {
   const bombR = 800; // damage radius (2x for stronger AOE)
-  const bombDmg = 10 + player.upgradeLevel * 5; // LV0:10 .. LV15:85
+  const bombDmg = Math.round(1.5 * (10 + player.upgradeLevel * 5)); // ×1.5 → LV0:15 .. LV15:128
+  // Shockwave that visualises the actual damage range — orange rim that
+  // expands from the impact point out to bombR over ~0.5s, then fades.
+  shockwaves.push({
+    x: bx, y: by,
+    startR: 60, maxR: bombR,
+    life: 32, maxLife: 32,
+    color: '#ffaa44',
+    inner: '#ffee88',
+  });
   // Firework particles - many colors, large radius
   const COUNT = 80;
   for (let i = 0; i < COUNT; i++) {
@@ -2230,6 +2241,47 @@ function updateParticles() {
   }
 }
 
+function updateShockwaves() {
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    shockwaves[i].life--;
+    if (shockwaves[i].life <= 0) shockwaves.splice(i, 1);
+  }
+}
+
+function drawShockwaves() {
+  for (const s of shockwaves) {
+    const t = 1 - s.life / s.maxLife;       // 0 → 1 over the wave's lifetime
+    // Ease-out so the ring whips out fast and decelerates near the edge
+    const ease = 1 - Math.pow(1 - t, 2);
+    const r = s.startR + (s.maxR - s.startR) * ease;
+    const alpha = (1 - t) * 0.7;
+    ctx.save();
+    // Filled disc — translucent fill so the danger zone reads at a glance
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = alpha * 0.18;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    // Outer rim
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = s.inner || s.color;
+    ctx.lineWidth = 6;
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = s.color;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    // Inner rim slightly behind, brighter
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, Math.max(0, r - 6), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 // ==================== DRAW ====================
 function drawStars() {
   for (let s of stars) {
@@ -3154,6 +3206,7 @@ function gameLoop(currentTime) {
       checkCollisions(si);
     }
     updateParticles();
+    updateShockwaves();
 
     // Stage clear check
     if (stageClearTimer > 0) {
@@ -3181,6 +3234,7 @@ function gameLoop(currentTime) {
   drawBullets();
   drawBombs();
   drawParticles();
+  drawShockwaves();
   drawItems();
   drawPlayer();
   drawSword();
@@ -3271,7 +3325,7 @@ function drawPausedOverlay() {
 }
 
 function initPlayerStage() {
-  stageBombs = 3;
+  stageBombs = 4;
   stageBeam = 2;
   beamActive = false;
   beamTimer = 0;
