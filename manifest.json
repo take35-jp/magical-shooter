@@ -1,0 +1,14 @@
+{
+  "name": "MAGICAL SHOOTER 魔法少女系戦闘Vtuber ももりの",
+  "short_name": "ももりの",
+  "description": "魔法少女系戦闘Vtuber ももりのが宇宙怪獣を撃退する2Dシューティング",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000010",
+  "theme_color": "#1a0028",
+  "icons": [
+    { "src": "Pic/icon.jpg", "type": "image/jpeg", "sizes": "192x192", "purpose": "any" },
+    { "src": "Pic/icon.jpg", "type": "image/jpeg", "sizes": "512x512", "purpose": "any" }
+  ]
+}

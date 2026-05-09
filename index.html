@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>MAGICAL SHOOTER 魔法少女系戦闘Vtuber ももりの</title>
+<!-- PWA / home-screen icon -->
+<link rel="icon" type="image/jpeg" href="Pic/icon.jpg">
+<link rel="apple-touch-icon" href="Pic/icon.jpg">
+<link rel="apple-touch-icon" sizes="180x180" href="Pic/icon.jpg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ももりの">
+<meta name="theme-color" content="#1a0028">
+<link rel="manifest" href="manifest.json">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -40,6 +49,36 @@ canvas {
   text-shadow: 0 0 20px #ff44aa, 0 0 40px #ff00aa;
   margin-bottom: 20px;
   line-height: 1.4;
+}
+#titleHeading {
+  width: clamp(260px, 60vw, 560px);
+  height: auto;
+  filter: drop-shadow(0 0 18px rgba(255,150,220,0.55));
+  margin-bottom: 8px;
+  user-select: none;
+  -webkit-user-drag: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+.gameclearTitle {
+  font-size: clamp(20px, 4.5vw, 40px);
+  color: #ffee88;
+  text-shadow: 0 0 18px #ffaa44, 0 0 36px #ff7700;
+  margin-bottom: 12px;
+}
+.gameclearHero {
+  width: clamp(200px, 36vw, 380px);
+  height: auto;
+  filter: drop-shadow(0 0 24px rgba(255,200,120,0.6));
+  margin-bottom: 14px;
+  image-rendering: -webkit-optimize-contrast;
+}
+.gameclearBtns {
+  display: flex;
+  flex-direction: row;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
 }
 #overlay p {
   font-size: clamp(8px, 1.5vw, 14px);
@@ -539,7 +578,7 @@ canvas {
     </div>
   </div>
   <div id="overlay">
-    <h1>✨ MAGICAL SHOOTER ✨<br>魔法少女系戦闘Vtuber ももりの</h1>
+    <img id="titleHeading" alt="MAGICAL SHOOTER 魔法少女系戦闘Vtuber ももりの">
     <div id="titleBody">
       <img id="titleArt" alt="ももりの">
       <div id="titleText">
@@ -638,6 +677,7 @@ let joystick = { dx: 0, dy: 0, active: false };
 let mobileShootHeld = false;
 let isMobileDevice = false;
 let isPaused = false;
+let gameclearDataUrl = '';
 
 // Admin debug mode — gated by URL hash. Use #admin=Take35@pla to unlock.
 // NOTE: this is a static HTML file; the password is visible in source.
@@ -797,8 +837,8 @@ function drawTerrain(stageIdx) {
 
 const BOSS_CONFIG = [
   { name: 'スライム皇帝',         hp: 600,  color: '#88ff44', size: 80 },
-  { name: 'タコハイ',             hp: 1200, color: '#44ddff', size: 90 },
-  { name: 'オウムキング',         hp: 2100, color: '#ffdd00', size: 100 },
+  { name: 'シルバーオクトパス',   hp: 1200, color: '#44ddff', size: 90 },
+  { name: 'トゲピーキング',       hp: 2100, color: '#ffdd00', size: 100 },
   { name: 'ダークネビュラ',       hp: 3300, color: '#aa44ff', size: 110 },
   { name: '混沌のダークワーム',   hp: 5400, color: '#ff6600', size: 130 },
   { name: '大魔王エッゾモッモ',   hp: 9000, color: '#ff2244', size: 150 },
@@ -2182,18 +2222,64 @@ function drawStars() {
 function drawEnemy(e) {
   ctx.save();
   const cx = e.x + e.w/2, cy = e.y + e.h/2;
-  
+
   // Flash when low HP
   if (e.hp < e.maxHp * 0.3 && Math.floor(frameCount/4) % 2) {
     ctx.globalAlpha = 0.5;
   }
-  
+
   ctx.shadowBlur = 15;
   ctx.shadowColor = e.color;
+
+  // Image-based render if a sprite was loaded for this enemy type — draw at
+  // 1.4x bounding box so the artwork reads at a glance, with a subtle
+  // breathing scale. Collision stays at e.w/h, kamikaze rotates to face dir.
+  const sprite = images['enemy_' + e.type];
+  if (sprite && sprite.complete) {
+    const breath = 1 + Math.sin(frameCount * 0.06 + e.angle) * 0.03;
+    const scale = 1.4 * breath;
+    const dw = e.w * scale, dh = e.h * scale;
+    if (e.type === 'kamikaze') {
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.atan2(e.kVy || 0, e.kVx || -1));
+      ctx.drawImage(sprite, -dw/2, -dh/2, dw, dh);
+    } else {
+      ctx.drawImage(sprite, cx - dw/2, cy - dh/2, dw, dh);
+    }
+    // Shielded enemies also need their rotating shield ring overlay
+    if (e.type === 'shielded') {
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#aaccff';
+      ctx.strokeStyle = '#ddeeff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, e.w/2 + 3, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      for (let j = 0; j < 4; j++) {
+        const a = e.angle * 2 + j * Math.PI/2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, e.w/2 + 3, a, a + 0.3);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    // HP bar drawn after restore, with original drawEnemy logic
+    if (e.hp < e.maxHp) {
+      const bw = e.w, bh = 4;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(e.x, e.y - 8, bw, bh);
+      ctx.fillStyle = e.hp > e.maxHp*0.5 ? '#44ff44' : '#ff4444';
+      ctx.fillRect(e.x, e.y - 8, bw * (e.hp/e.maxHp), bh);
+    }
+    return;
+  }
+
   ctx.fillStyle = e.color;
   ctx.strokeStyle = '#ffffff44';
   ctx.lineWidth = 1;
-  
+
   switch(e.shape) {
     case 'blob': {
       ctx.beginPath();
@@ -3185,13 +3271,17 @@ function showOverlay(type) {
       <button class="btn" onclick="restartGame()">▶ RETRY</button>
     `;
   } else if (type === 'gameClear') {
+    const heroSrc = gameclearDataUrl || 'Pic/gameclear.jpg';
     ov.innerHTML = `
-      <h1>🌟 GAME CLEAR! 🌟</h1>
+      <h1 class="gameclearTitle">Thank you for playing!</h1>
+      <img class="gameclearHero" src="${heroSrc}" alt="">
       <p>宇宙怪獣の大軍を撃破！地球は守られた！</p>
-      <br>
       <p>FINAL SCORE: ${score.toString().padStart(8,'0')}</p>
       <p>BEST SCORE: ${highScore.toString().padStart(8,'0')}</p>
-      <button class="btn" onclick="restartGame()">▶ PLAY AGAIN</button>
+      <div class="gameclearBtns">
+        <button class="btn" onclick="location.reload()">↩ タイトルに戻る</button>
+        <button class="btn" onclick="restartGame()">▶ PLAY AGAIN</button>
+      </div>
     `;
   }
 }
@@ -3675,18 +3765,70 @@ function playSound(type) {
         break;
       }
       case 'stage_clear': {
-        const freqs = [523, 784, 1046, 1318];
-        freqs.forEach((freq, i) => {
+        // Triumphant fanfare: ascending C major arpeggio + final sustained chord,
+        // built from layered triangle (lead) + sawtooth (harmonics) + a snare flam.
+        const lead = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98]; // C E G C E G
+        lead.forEach((freq, i) => {
           const o = audioCtx.createOscillator();
           const g = audioCtx.createGain();
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(freq, now + i * 0.08);
           o.connect(g); g.connect(audioCtx.destination);
-          o.type = 'sine';
-          o.frequency.value = freq;
-          const t = now + i * 0.1;
-          g.gain.setValueAtTime(0.15, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t+0.2);
-          o.start(t); o.stop(t+0.2);
+          const t = now + i * 0.08;
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.18, t + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+          o.start(t); o.stop(t + 0.22);
+          // Saw harmonic for energy
+          const o2 = audioCtx.createOscillator();
+          const g2 = audioCtx.createGain();
+          o2.type = 'sawtooth';
+          o2.frequency.setValueAtTime(freq, t);
+          o2.connect(g2); g2.connect(audioCtx.destination);
+          g2.gain.setValueAtTime(0, t);
+          g2.gain.linearRampToValueAtTime(0.05, t + 0.005);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+          o2.start(t); o2.stop(t + 0.2);
         });
+        // Final sustained C-major chord (root + third + fifth + octave)
+        const chordTime = now + lead.length * 0.08 + 0.05;
+        [523.25, 659.25, 783.99, 1046.50].forEach(f => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(f, chordTime);
+          o.connect(g); g.connect(audioCtx.destination);
+          g.gain.setValueAtTime(0, chordTime);
+          g.gain.linearRampToValueAtTime(0.16, chordTime + 0.02);
+          g.gain.linearRampToValueAtTime(0.12, chordTime + 0.6);
+          g.gain.exponentialRampToValueAtTime(0.001, chordTime + 1.4);
+          o.start(chordTime); o.stop(chordTime + 1.45);
+        });
+        // Snare-like flam at chord onset
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.18, audioCtx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          data[i] = (Math.random() - 0.5) * 2 * Math.exp(-i / data.length * 6);
+        }
+        const src = audioCtx.createBufferSource();
+        const sg = audioCtx.createGain();
+        const sf = audioCtx.createBiquadFilter();
+        sf.type = 'highpass'; sf.frequency.value = 1200;
+        src.buffer = buf;
+        src.connect(sf); sf.connect(sg); sg.connect(audioCtx.destination);
+        sg.gain.setValueAtTime(0.18, chordTime);
+        sg.gain.exponentialRampToValueAtTime(0.001, chordTime + 0.18);
+        src.start(chordTime);
+        // Kick on first note for impact
+        const kick = audioCtx.createOscillator();
+        const kg = audioCtx.createGain();
+        kick.type = 'sine';
+        kick.frequency.setValueAtTime(140, now);
+        kick.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+        kg.gain.setValueAtTime(0.45, now);
+        kg.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        kick.connect(kg); kg.connect(audioCtx.destination);
+        kick.start(now); kick.stop(now + 0.22);
         break;
       }
     }
@@ -3793,19 +3935,49 @@ window.addEventListener('load', () => {
     img.src = src;
   }
 
-  // Load boss images (1.png .. 6.png) — same flood-fill transparency
+  // Load boss images (Pic/boss1.jpg .. Pic/boss6.jpg).
+  // JPGs with white/checkerboard backgrounds → use the desat flood fill.
   for (let n = 1; n <= 6; n++) {
     const key = 'boss' + n;
     const img = new Image();
     images[key] = img;
     img.onload = () => {
       try {
-        images[key] = makeTransparent(img);
+        images[key] = makeTransparentDesat(img);
       } catch (e) {
         console.warn('boss transparency failed for', key, e);
       }
     };
-    img.src = n + '.png';
+    img.src = 'Pic/boss' + n + '.jpg';
+  }
+
+  // Load zako enemy sprites from Pic/<type>.(png|jpg). The procedural
+  // draw stays as a fallback if a sprite is missing or still loading.
+  const ENEMY_IMAGES = {
+    blob:      'Pic/blob.png',
+    eye:       'Pic/eye.jpg',
+    dart:      'Pic/dart.jpg',
+    tank:      'Pic/tank.jpg',
+    spinner:   'Pic/spinner.jpg',
+    jellyfish: 'Pic/jellyfish.jpg',
+    crystal:   'Pic/crystal.jpg',
+    sniper:    'Pic/sniper.jpg',
+    shielded:  'Pic/shielded.jpg',
+    giant:     'Pic/giant.jpg',
+    kamikaze:  'Pic/kamikaze.jpg',
+  };
+  for (const [type, src] of Object.entries(ENEMY_IMAGES)) {
+    const key = 'enemy_' + type;
+    const img = new Image();
+    images[key] = img;
+    img.onload = () => {
+      try {
+        images[key] = makeTransparentDesat(img);
+      } catch (e) {
+        console.warn('enemy transparency failed for', key, e);
+      }
+    };
+    img.src = src;
   }
 
   // Player sword-swing pose
@@ -3822,8 +3994,7 @@ window.addEventListener('load', () => {
     swordImg.src = 'sword.png';
   }
 
-  // Title-screen art — JPG with baked-in checkerboard, so use the desaturation
-  // variant of the flood fill so both white AND light-gray squares are removed.
+  // Title screen art (character) — Pic/Title_momorino.jpg with desat flood fill
   {
     const titleImg = new Image();
     titleImg.onload = () => {
@@ -3834,14 +4005,48 @@ window.addEventListener('load', () => {
         images.title = c;
       } catch (e) {
         console.warn('title transparency failed', e);
-        if (el) el.src = 'title.jpg';
+        if (el) el.src = 'Pic/Title_momorino.jpg';
       }
     };
     titleImg.onerror = () => {
       const el = document.getElementById('titleArt');
       if (el) el.style.display = 'none';
     };
-    titleImg.src = 'title.jpg';
+    titleImg.src = 'Pic/Title_momorino.jpg';
+  }
+  // Title heading text image — Pic/Title.jpg with desat flood fill
+  {
+    const tImg = new Image();
+    tImg.onload = () => {
+      const el = document.getElementById('titleHeading');
+      try {
+        const c = makeTransparentDesat(tImg);
+        if (el) el.src = c.toDataURL();
+      } catch (e) {
+        console.warn('title heading transparency failed', e);
+        if (el) el.src = 'Pic/Title.jpg';
+      }
+    };
+    tImg.onerror = () => {
+      const el = document.getElementById('titleHeading');
+      if (el) el.style.display = 'none';
+    };
+    tImg.src = 'Pic/Title.jpg';
+  }
+  // Game-clear hero image — Pic/gameclear.jpg with desat flood fill
+  {
+    const gcImg = new Image();
+    gcImg.onload = () => {
+      try {
+        const c = makeTransparentDesat(gcImg);
+        gameclearDataUrl = c.toDataURL();
+      } catch (e) {
+        console.warn('gameclear transparency failed', e);
+        gameclearDataUrl = 'Pic/gameclear.jpg';
+      }
+    };
+    gcImg.onerror = () => { gameclearDataUrl = ''; };
+    gcImg.src = 'Pic/gameclear.jpg';
   }
   
   initStars();
