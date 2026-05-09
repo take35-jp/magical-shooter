@@ -3879,6 +3879,44 @@ window.addEventListener('load', () => {
     return c;
   }
 
+  // After a flood fill, run N "edge dilation" passes that delete each ring of
+  // pixels touching the current transparent area IF they look like halo
+  // (light + low saturation). Saturated hair/skin colors pass through; the
+  // halo gets shaved off without leaking into interior regions.
+  function eradicateHalo(canvas, iterations = 3, lightThresh = 200, satThresh = 45) {
+    const cx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const data = cx.getImageData(0, 0, w, h);
+    const px = data.data;
+    for (let iter = 0; iter < iterations; iter++) {
+      const alpha = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) alpha[i] = px[i * 4 + 3];
+      let changed = false;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          if (alpha[idx] === 0) continue;
+          const t =
+            (y > 0       && alpha[idx - w] === 0) ||
+            (y < h - 1   && alpha[idx + w] === 0) ||
+            (x > 0       && alpha[idx - 1] === 0) ||
+            (x < w - 1   && alpha[idx + 1] === 0);
+          if (!t) continue;
+          const i4 = idx * 4;
+          const r = px[i4], g = px[i4 + 1], b = px[i4 + 2];
+          const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+          const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+          if (max > lightThresh && (max - min) < satThresh) {
+            px[i4 + 3] = 0;
+            changed = true;
+          }
+        }
+      }
+      if (!changed) break;
+    }
+    cx.putImageData(data, 0, 0);
+  }
+
   // Variant for images on a dark/black background — flood-fill from edges,
   // any near-black pixel (max channel below darkThresh) becomes transparent.
   function makeTransparentDark(img, darkThresh = 80) {
@@ -4034,15 +4072,16 @@ window.addEventListener('load', () => {
     swordImg.src = 'sword.png';
   }
 
-  // Title screen art (character) — Pic/Title_momorino.jpg with desat flood fill.
-  // Looser thresholds so the soft white/pink halo around the character is also
-  // caught while saturated hair/skin pixels survive.
+  // Title screen art (character) — strict flood fill for safety, then a few
+  // halo-dilation passes shave off the soft white/pink fringe around the
+  // hair without leaking into interior skin tones.
   {
     const titleImg = new Image();
     titleImg.onload = () => {
       const el = document.getElementById('titleArt');
       try {
-        const c = makeTransparentDesat(titleImg, 155, 60);
+        const c = makeTransparentDesat(titleImg, 175, 40);
+        eradicateHalo(c, 4, 205, 35);
         if (el) el.src = c.toDataURL();
         images.title = c;
       } catch (e) {
