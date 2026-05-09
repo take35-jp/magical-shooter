@@ -453,6 +453,24 @@ canvas {
   font-size: clamp(11px, 1.4vw, 13px);
   text-shadow: 0 0 8px rgba(255,180,80,0.5);
 }
+#invincibleToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+  color: #ff88cc;
+  font-size: clamp(11px, 1.4vw, 13px);
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(255,100,200,0.6);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#invincibleToggle input {
+  width: 16px; height: 16px;
+  accent-color: #ff66bb;
+  cursor: pointer;
+}
 /* Help (controls) popup */
 .helpBtn {
   font-size: clamp(10px, 1.6vw, 14px) !important;
@@ -613,6 +631,10 @@ canvas {
             <input type="range" id="powerSlider" min="0" max="15" value="0" step="1">
             <span id="powerValue">LV 0</span>
           </div>
+          <label id="invincibleToggle">
+            <input type="checkbox" id="invincibleChk">
+            <span>無敵モード (INVINCIBLE)</span>
+          </label>
         </div>
         <button class="btn helpBtn" id="helpBtn">📖 操作方法</button>
         <button class="btn" id="startBtn">▶ GAME START</button>
@@ -703,6 +725,7 @@ const ADMIN_PASS = 'Take35@pla';
 const isAdminMode = (window.location.hash || '').includes('admin=' + ADMIN_PASS);
 let adminStartStage = 0; // 0-indexed (0 = Stage 1)
 let adminStartPower = 0; // 0..MAX_UPGRADE
+let adminInvincible = false; // skips playerHit damage entirely while ON
 
 // Gamepad input state (combined with keyboard/touch in updatePlayer)
 let gpInput = { dx: 0, dy: 0, shoot: false, connected: false };
@@ -2096,7 +2119,14 @@ function checkCollisions(stageIdx) {
 
 function playerHit() {
   if (player.invincible > 0) return;
-  
+  // Admin invincibility — skip the entire damage path so guardians,
+  // upgrade level, and life all stay untouched
+  if (isAdminMode && adminInvincible) {
+    player.invincible = 30;
+    player.hitFlash = 12;
+    return;
+  }
+
   if (guardians.length > 0) {
     // Guardian absorbs hit — small-critter "kyu!" cry on its disappearance
     guardians.pop();
@@ -4254,6 +4284,11 @@ window.addEventListener('load', () => {
       slider.addEventListener('input', sync);
       slider.addEventListener('change', sync);
       sync();
+    }
+    const invChk = document.getElementById('invincibleChk');
+    if (invChk) {
+      invChk.addEventListener('change', () => { adminInvincible = invChk.checked; });
+      adminInvincible = invChk.checked;
     }
   }
 
